@@ -11,6 +11,18 @@ Esta guía adapta el enfoque de [Agents.md para Java y Spring Boot](https://jose
 - Contabilidad usa Spring JDBC y SQL explícito. No introducir JPA, Lombok, MapStruct, Kafka, Redis o Kubernetes por inercia; cada incorporación debe responder al backlog y a una decisión concreta.
 - La API pública aún no está implementada. Los endpoints actuales de Contabilidad son internos y se limitan a `127.0.0.1` hasta añadir identidad de servicio en H2.
 
+## Arquitectura en capas de Contabilidad
+
+```text
+services/contabilidad/src/main/java/com/portafolio/banca/contabilidad/
+├── api/                         HTTP, DTO y errores
+├── application/                 casos de uso, transacciones y puerto AccountingStore
+├── domain/                      cuentas, instrucciones y reglas puras
+└── infrastructure/persistence/  SQL y adaptación JDBC del puerto
+```
+
+`api → application → domain`; `infrastructure` implementa el puerto de `application`. `domain` no importa Spring, HTTP ni JDBC. El controlador no consulta la base, y `application` no importa la implementación JDBC. Lee [las reglas de capas](docs/agent-guides/java-and-architecture.md) antes de crear clases.
+
 ## Qué leer según el cambio
 
 | Trabajo | Referencias |
@@ -28,7 +40,7 @@ Esta guía adapta el enfoque de [Agents.md para Java y Spring Boot](https://jose
 - Cada servicio es dueño de su base lógica y sus migraciones Flyway. No compartir entidades ni repositorios entre servicios ni crear claves foráneas entre bases.
 - Mantener `BigDecimal` y `numeric(19,2)` para importes. No usar `double` ni `float` para dinero.
 - No registrar credenciales, tokens, cuerpos completos ni datos personales. La autenticación y autorización previstas para H2 no deben describirse como ya implementadas.
-- Las reglas de este archivo orientan cambios futuros: no requieren reestructurar código funcional sin un motivo verificable.
+- Mantener los límites entre capas cuando se agreguen funcionalidades; crear una capa o interfaz adicional solo si cumple una responsabilidad concreta.
 
 ## Comandos desde la raíz
 

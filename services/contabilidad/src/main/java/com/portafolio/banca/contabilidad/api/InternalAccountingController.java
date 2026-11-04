@@ -1,5 +1,6 @@
-package com.portafolio.banca.contabilidad;
+package com.portafolio.banca.contabilidad.api;
 
+import com.portafolio.banca.contabilidad.application.AccountingService;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,17 +19,21 @@ public class InternalAccountingController {
     }
 
     @GetMapping("/cuentas/{accountId}")
-    public AccountView account(@PathVariable UUID accountId) {
-        return accounting.account(accountId);
+    public AccountResponse account(@PathVariable UUID accountId) {
+        var account = accounting.account(accountId);
+        return AccountResponse.from(account);
     }
 
     @PostMapping("/movimientos/transferencia")
-    public TransferResult transfer(@RequestBody TransferCommand command) {
-        return accounting.transfer(command);
+    public TransferResponse transfer(@RequestBody TransferRequest request) {
+        var instruction = request.toInstruction();
+        var result = accounting.transfer(instruction);
+        return TransferResponse.from(result);
     }
 
     @GetMapping("/movimientos/transferencia/{transferId}")
-    public TransferResult result(@PathVariable UUID transferId) {
-        return accounting.result(transferId);
+    public TransferResponse result(@PathVariable UUID transferId) {
+        var result = accounting.result(transferId);
+        return TransferResponse.from(result);
     }
 }

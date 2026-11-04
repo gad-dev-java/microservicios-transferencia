@@ -70,6 +70,8 @@ Habrá **un `pom.xml` raíz y uno por servicio**. El raíz tendrá `packaging=po
 
 Los servicios **no dependerán entre sí como módulos Java** ni compartirán entidades JPA o repositorios. Se comunicarán mediante los contratos HTTP y de eventos de `contratos/`. Esto preserva su despliegue independiente aunque vivan en un único repositorio.
 
+Dentro de `services/contabilidad`, el código actual sigue [cuatro capas](agent-guides/java-and-architecture.md): `api` expone el contrato HTTP, `application` coordina la transacción, `domain` decide las reglas contables e `infrastructure/persistence` contiene las consultas Spring JDBC. El puerto `AccountingStore` en `application` permite que el caso de uso no dependa de `JdbcTemplate`. Esta separación no cambia la decisión de usar JDBC ni crea entidades JPA.
+
 Comandos previstos desde la raíz, una vez creado el código:
 
 ```powershell

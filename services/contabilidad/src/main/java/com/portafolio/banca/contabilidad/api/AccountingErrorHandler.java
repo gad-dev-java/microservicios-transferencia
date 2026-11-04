@@ -1,5 +1,7 @@
-package com.portafolio.banca.contabilidad;
+package com.portafolio.banca.contabilidad.api;
 
+import com.portafolio.banca.contabilidad.application.IdempotencyConflictException;
+import com.portafolio.banca.contabilidad.application.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;

@@ -1,4 +1,4 @@
-package com.portafolio.banca.contabilidad;
+package com.portafolio.banca.contabilidad.application;
 
 import java.util.UUID;
 

@@ -8,6 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.portafolio.banca.contabilidad.application.AccountingService;
+import com.portafolio.banca.contabilidad.application.IdempotencyConflictException;
+import com.portafolio.banca.contabilidad.application.TransferResult;
+import com.portafolio.banca.contabilidad.domain.TransferInstruction;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -203,14 +207,14 @@ class AccountingServiceIntegrationTest {
                 .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
     }
 
-    private List<TransferResult> concurrent(int requests, java.util.function.IntFunction<TransferCommand> commands)
+    private List<TransferResult> concurrent(int requests, java.util.function.IntFunction<TransferInstruction> commands)
             throws Exception {
         CountDownLatch start = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(requests);
         try {
             List<Future<TransferResult>> futures = new ArrayList<>();
             for (int i = 0; i < requests; i++) {
-                TransferCommand command = commands.apply(i);
+                TransferInstruction command = commands.apply(i);
                 Callable<TransferResult> task = () -> {
                     start.await();
                     return accounting.transfer(command);
@@ -228,8 +232,8 @@ class AccountingServiceIntegrationTest {
         }
     }
 
-    private static TransferCommand command(UUID id, String amount) {
-        return new TransferCommand(id, OWNER, SOURCE, DESTINATION, amount, "PEN");
+    private static TransferInstruction command(UUID id, String amount) {
+        return new TransferInstruction(id, OWNER, SOURCE, DESTINATION, new BigDecimal(amount), "PEN");
     }
 
     private void assertBalance(UUID account, String expected) {
