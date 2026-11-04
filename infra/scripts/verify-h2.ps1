@@ -57,10 +57,11 @@ try {
     Assert-That (([decimal]$before.Body.saldoDisponible - [decimal]$after.Body.saldoDisponible) -eq 1) 'P-01 falló: saldo de origen'
     Write-Output 'P-01 OK: transferencia confirmada y saldo actualizado'
 
+    $smallBefore = Send-Request 'GET' "/api/v1/cuentas/$smallSource" $user1
     $p02 = Send-Request 'POST' '/api/v1/transferencias' $user1 (New-TransferBody $smallSource $destination '2999.00') ([guid]::NewGuid().ToString())
     Assert-That ($p02.Status -eq 201 -and $p02.Body.estado -eq 'RECHAZADA' -and $p02.Body.motivo -eq 'INSUFFICIENT_FUNDS') 'P-02 falló'
     $smallAfter = Send-Request 'GET' "/api/v1/cuentas/$smallSource" $user1
-    Assert-That ([decimal]$smallAfter.Body.saldoDisponible -eq 100) 'P-02 falló: cambió el saldo'
+    Assert-That ([decimal]$smallAfter.Body.saldoDisponible -eq [decimal]$smallBefore.Body.saldoDisponible) 'P-02 falló: cambió el saldo'
     Write-Output 'P-02 OK: saldo insuficiente'
 
     $p03 = Send-Request 'POST' '/api/v1/transferencias' $user1 (New-TransferBody $destination $source '1.00') ([guid]::NewGuid().ToString())

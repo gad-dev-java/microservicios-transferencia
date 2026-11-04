@@ -10,10 +10,12 @@ MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQ
 - [Contrato OpenAPI público](contratos/openapi-publica.yaml)
 - [Guía para agentes y asistentes de código](AGENTS.md)
 - [CI y registro de imágenes](docs/10-ci-y-registro.md)
+- [Colección Postman de demostración](contratos/coleccion-demo.postman_collection.json)
+- [Prueba de carga y resultados](docs/11-prueba-carga.md)
 
 El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. Redis, MongoDB, Config Server y Kubernetes pertenecen a ampliaciones posteriores.
 
-## Estado actual: H3, eventos y notificaciones
+## Estado actual: H4, operación y demostración
 
 Contabilidad registra el movimiento con dos asientos atómicos e idempotencia por `transferId`. Riesgo guarda una decisión reproducible; Transferencias persiste el estado público, exige `Idempotency-Key` y concilia resultados inciertos. Los servicios validan JWT y los endpoints internos exigen identidad de servicio.
 
@@ -48,6 +50,23 @@ Invoke-RestMethod 'http://localhost:8080/api/v1/transferencias' -Method Post -He
 La misma clave y el mismo cuerpo devuelven `200` con el mismo identificador; un cuerpo distinto devuelve `409`. Una respuesta `202` indica que la conciliación continúa y se puede consultar el estado con `GET /api/v1/transferencias/{id}`. `GET /api/v1/notificaciones` muestra avisos simulados del titular autenticado. Solo las confirmaciones escriben `TransferenciaConfirmada` v1 en outbox dentro de la transacción contable; el relay lo publica en Kafka y Notificaciones deduplica por `eventId`.
 
 El script H2 comprueba P-01 a P-08 y P-10 por el gateway. P-09 se prueba con Testcontainers. Para P-11, detén Kafka con `docker compose stop kafka`, confirma una transferencia y verifica una fila de `outbox` con `published_at IS NULL` en la base `contabilidad`; al ejecutar `docker compose start kafka`, el aviso aparece en `GET /api/v1/notificaciones`. Para P-12, la prueba `NotificationIntegrationTest` repite el mismo `eventId` y verifica una sola entrega. También se comprobó reenviando el evento por Kafka en Compose.
+
+### Demostración guiada
+
+1. Ejecuta `docker compose up -d --build` y espera a que `http://localhost:8080/actuator/health/readiness` devuelva `200`.
+2. Importa [la colección Postman](contratos/coleccion-demo.postman_collection.json) y ejecútala en el orden numerado. Obtiene los dos tokens, lista cuentas, confirma una transferencia de 0,01 PEN, repite la clave, comprueba un conflicto, provoca un rechazo de Riesgo y verifica que otro titular no ve la cuenta ni la transferencia.
+3. Consulta `GET /api/v1/notificaciones` tras unos segundos para observar el aviso asíncrono. Abre Zipkin y Prometheus para examinar trazas muestreadas y métricas.
+4. Ejecuta `pwsh -NoProfile -File infra/scripts/verify-h2.ps1` para comprobar automáticamente los escenarios del MVP. Esta prueba crea transferencias y detiene temporalmente Riesgo; ejecútala fuera de una prueba de carga.
+
+La colección guarda tokens solo en variables de Postman durante la sesión. Las claves y contraseñas incluidas son exclusivamente para el entorno local ficticio. Para una medición sostenida de cinco minutos, usa la [guía de carga](docs/11-prueba-carga.md); la prueba crea unas 1.200 transferencias reales en el volumen local.
+
+También puedes ejecutar la colección sin interfaz gráfica desde Docker:
+
+```powershell
+docker run --rm -v "${PWD}/contratos:/etc/newman" postman/newman:alpine run /etc/newman/coleccion-demo.postman_collection.json --env-var gatewayUrl=http://host.docker.internal:8080 --env-var identityUrl=http://host.docker.internal:8180 --bail
+```
+
+La ejecución local de TEC-19 pasó las 11 solicitudes y las 11 aserciones; `verify-h2.ps1` también completó P-01 a P-08 y P-10 después de la prueba de carga.
 
 ## Observabilidad local
 

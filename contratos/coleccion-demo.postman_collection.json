@@ -1,0 +1,180 @@
+{
+  "info": {
+    "name": "Transferencias bancarias simuladas",
+    "description": "TEC-19: ejecutar en orden. Solo usa usuarios y dinero ficticios. La colección guarda tokens, clave de idempotencia e ID de transferencia como variables locales de colección.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayUrl", "value": "http://localhost:8080" },
+    { "key": "identityUrl", "value": "http://localhost:8180" },
+    { "key": "token1", "value": "" },
+    { "key": "token2", "value": "" },
+    { "key": "idempotencyKey", "value": "" },
+    { "key": "transferId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 Token cliente1",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('token emitido', () => pm.response.to.have.status(200));",
+        "pm.collectionVariables.set('token1', pm.response.json().access_token);"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": { "mode": "urlencoded", "urlencoded": [
+          { "key": "grant_type", "value": "password" },
+          { "key": "client_id", "value": "banco-cli" },
+          { "key": "username", "value": "cliente1" },
+          { "key": "password", "value": "cliente1-local" }
+        ] },
+        "url": "{{identityUrl}}/realms/banco-demo/protocol/openid-connect/token"
+      }
+    },
+    {
+      "name": "02 Cuentas propias",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token1}}" }],
+        "url": "{{gatewayUrl}}/api/v1/cuentas"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('cuentas propias', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array'); });"
+      ] } }]
+    },
+    {
+      "name": "03 Crear transferencia confirmada",
+      "event": [
+        { "listen": "prerequest", "script": { "exec": [
+          "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+        ] } },
+        { "listen": "test", "script": { "exec": [
+          "pm.test('transferencia confirmada', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().estado).to.eql('CONFIRMADA'); });",
+          "pm.collectionVariables.set('transferId', pm.response.json().id);"
+        ] } }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token1}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"cuentaOrigenId\": \"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1\",\n  \"cuentaDestinoId\": \"cccccccc-cccc-4ccc-8ccc-ccccccccccc1\",\n  \"importe\": \"0.01\",\n  \"moneda\": \"PEN\"\n}" },
+        "url": "{{gatewayUrl}}/api/v1/transferencias"
+      }
+    },
+    {
+      "name": "04 Repetir la misma clave y cuerpo",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token1}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"cuentaOrigenId\": \"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1\",\n  \"cuentaDestinoId\": \"cccccccc-cccc-4ccc-8ccc-ccccccccccc1\",\n  \"importe\": \"0.01\",\n  \"moneda\": \"PEN\"\n}" },
+        "url": "{{gatewayUrl}}/api/v1/transferencias"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('misma transferencia', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('transferId')); });"
+      ] } }]
+    },
+    {
+      "name": "05 Conflicto por cuerpo diferente",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token1}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"cuentaOrigenId\": \"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1\",\n  \"cuentaDestinoId\": \"cccccccc-cccc-4ccc-8ccc-ccccccccccc1\",\n  \"importe\": \"0.02\",\n  \"moneda\": \"PEN\"\n}" },
+        "url": "{{gatewayUrl}}/api/v1/transferencias"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('conflicto de idempotencia', () => pm.response.to.have.status(409));"
+      ] } }]
+    },
+    {
+      "name": "06 Consultar transferencia",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token1}}" }],
+        "url": "{{gatewayUrl}}/api/v1/transferencias/{{transferId}}"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('transferencia propia', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('transferId')); });"
+      ] } }]
+    },
+    {
+      "name": "07 Rechazo por riesgo",
+      "event": [{ "listen": "prerequest", "script": { "exec": [
+        "pm.variables.set('riskKey', pm.variables.replaceIn('{{$guid}}'));"
+      ] } }, { "listen": "test", "script": { "exec": [
+        "pm.test('riesgo rechaza sin mover saldo', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().estado).to.eql('RECHAZADA'); });"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token1}}" },
+          { "key": "Idempotency-Key", "value": "{{riskKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"cuentaOrigenId\": \"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1\",\n  \"cuentaDestinoId\": \"cccccccc-cccc-4ccc-8ccc-ccccccccccc1\",\n  \"importe\": \"3000.01\",\n  \"moneda\": \"PEN\"\n}" },
+        "url": "{{gatewayUrl}}/api/v1/transferencias"
+      }
+    },
+    {
+      "name": "08 Token cliente2",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('token emitido', () => pm.response.to.have.status(200));",
+        "pm.collectionVariables.set('token2', pm.response.json().access_token);"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": { "mode": "urlencoded", "urlencoded": [
+          { "key": "grant_type", "value": "password" },
+          { "key": "client_id", "value": "banco-cli" },
+          { "key": "username", "value": "cliente2" },
+          { "key": "password", "value": "cliente2-local" }
+        ] },
+        "url": "{{identityUrl}}/realms/banco-demo/protocol/openid-connect/token"
+      }
+    },
+    {
+      "name": "09 Cuenta ajena oculta",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token2}}" }],
+        "url": "{{gatewayUrl}}/api/v1/cuentas/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('cuenta ajena no visible', () => pm.response.to.have.status(404));"
+      ] } }]
+    },
+    {
+      "name": "10 Transferencia ajena oculta",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token2}}" }],
+        "url": "{{gatewayUrl}}/api/v1/transferencias/{{transferId}}"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('transferencia ajena no visible', () => pm.response.to.have.status(404));"
+      ] } }]
+    },
+    {
+      "name": "11 Avisos propios",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token1}}" }],
+        "url": "{{gatewayUrl}}/api/v1/notificaciones"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('avisos propios', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array'); });"
+      ] } }]
+    }
+  ]
+}
