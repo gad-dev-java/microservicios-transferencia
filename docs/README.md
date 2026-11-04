@@ -13,6 +13,7 @@ Esta carpeta fija las decisiones necesarias para comenzar el simulador de transf
 | 7 | Decisiones de arquitectura | [adr](adr) | Motivos y consecuencias de decisiones difíciles de revertir |
 | 8 | Stack y repositorio | [06-stack-y-repositorio.md](06-stack-y-repositorio.md) | Herramientas y estructura inicial |
 | 9 | Backlog de implementación | [07-backlog-de-implementacion.md](07-backlog-de-implementacion.md) | Historias, tareas, dependencias e hitos |
+| 10 | Flujo de Git | [08-flujo-git.md](08-flujo-git.md) | Ramas por historia y pull requests hacia `main` |
 
 ## Límites del compromiso
 

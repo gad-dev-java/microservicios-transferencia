@@ -6,6 +6,7 @@ Proyecto de portafolio para demostrar backend Java con microservicios en un domi
 - [Diagrama editable en draw.io](ARQUITECTURA.drawio)
 - [Entregables y orden de implementación](docs/README.md)
 - [Historias de usuario y backlog](docs/07-backlog-de-implementacion.md)
+- [Ramas y pull requests por historia](docs/08-flujo-git.md)
 - [Contrato OpenAPI público](contratos/openapi-publica.yaml)
 
 El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. Kafka, Notificaciones y observabilidad completan la siguiente entrega; Redis, MongoDB, Config Server y Kubernetes son ampliaciones posteriores.
