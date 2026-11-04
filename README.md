@@ -9,6 +9,7 @@ MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQ
 - [Ramas y pull requests por historia](docs/08-flujo-git.md)
 - [Contrato OpenAPI público](contratos/openapi-publica.yaml)
 - [Guía para agentes y asistentes de código](AGENTS.md)
+- [CI y registro de imágenes](docs/10-ci-y-registro.md)
 
 El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. Redis, MongoDB, Config Server y Kubernetes pertenecen a ampliaciones posteriores.
 

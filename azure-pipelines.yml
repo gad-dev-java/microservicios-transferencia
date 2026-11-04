@@ -4,29 +4,84 @@ trigger:
 pr:
   - main
 
-pool:
-  vmImage: ubuntu-latest
+variables:
+  dockerRegistryServiceConnection: UNCONFIGURED
+  imageNamespace: banca-demo
+  NVD_API_KEY: ''
 
-steps:
-  - task: JavaToolInstaller@0
-    displayName: Usar JDK 21
-    inputs:
-      versionSpec: '21'
-      jdkArchitectureOption: x64
-      jdkSourceOption: PreInstalled
+stages:
+  - stage: Verify
+    jobs:
+      - job: Maven
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: JavaToolInstaller@0
+            displayName: Usar JDK 21
+            inputs:
+              versionSpec: '21'
+              jdkArchitectureOption: x64
+              jdkSourceOption: PreInstalled
+          - script: |
+              chmod +x ./mvnw
+              ./mvnw -B -ntp verify
+              ./mvnw -B -ntp dependency:tree -DoutputFile=target/dependency-tree.txt
+            displayName: Compilar, probar e inventariar dependencias
+          - task: PublishTestResults@2
+            displayName: Publicar resultados de pruebas
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
+              failTaskOnMissingResultsFile: false
+          - script: docker compose config --quiet
+            displayName: Validar Docker Compose
+          - script: |
+              ./mvnw -B -ntp org.owasp:dependency-check-maven:13.0.0:aggregate \
+                -DnvdApiKeyEnvironmentVariable=NVD_API_KEY -DfailBuildOnCVSS=9
+            displayName: Analizar vulnerabilidades de dependencias
+            condition: and(succeeded(), ne(variables['NVD_API_KEY'], ''))
+            env:
+              NVD_API_KEY: $(NVD_API_KEY)
 
-  - script: |
-      chmod +x ./mvnw
-      ./mvnw -B -ntp verify
-    displayName: Compilar y verificar módulos
-
-  - task: PublishTestResults@2
-    displayName: Publicar resultados de pruebas
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFormat: JUnit
-      testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
-      failTaskOnMissingResultsFile: false
-
-  - script: docker compose config --quiet
-    displayName: Validar Docker Compose
+  - stage: Images
+    dependsOn: Verify
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['dockerRegistryServiceConnection'], 'UNCONFIGURED'))
+    jobs:
+      - job: Publish
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          matrix:
+            gateway:
+              module: gateway
+            transferencias:
+              module: transferencias
+            riesgo:
+              module: riesgo
+            contabilidad:
+              module: contabilidad
+            notificaciones:
+              module: notificaciones
+        steps:
+          - task: Docker@2
+            displayName: Construir $(module)
+            inputs:
+              command: build
+              containerRegistry: $(dockerRegistryServiceConnection)
+              repository: $(imageNamespace)/$(module)
+              Dockerfile: $(Build.SourcesDirectory)/Dockerfile
+              buildContext: $(Build.SourcesDirectory)
+              arguments: --build-arg APP_MODULE=$(module)
+              tags: |
+                $(Build.SourceVersion)
+                $(Build.BuildId)
+          - task: Docker@2
+            displayName: Publicar $(module)
+            inputs:
+              command: push
+              containerRegistry: $(dockerRegistryServiceConnection)
+              repository: $(imageNamespace)/$(module)
+              tags: |
+                $(Build.SourceVersion)
+                $(Build.BuildId)
