@@ -2,6 +2,8 @@ package com.portafolio.banca.contabilidad;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -31,6 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.junit.jupiter.Container;
@@ -183,7 +186,9 @@ class AccountingServiceIntegrationTest {
 
     @Test
     void httpErrorsUseProblemDetails() throws Exception {
-        var mvc = MockMvcBuilders.webAppContextSetup(webContext).build();
+        var mvc = MockMvcBuilders.webAppContextSetup(webContext)
+                .apply(springSecurity())
+                .build();
         var id = UUID.randomUUID();
         var body = """
                 {"transferId":"%s","actorSubject":"%s","sourceAccountId":"%s",
@@ -191,20 +196,38 @@ class AccountingServiceIntegrationTest {
                 """.formatted(id, OWNER, SOURCE, DESTINATION);
         var changedBody = body.replace("100.00", "101.00");
 
-        mvc.perform(get("/internal/v1/movimientos/transferencia/{id}", id))
+        mvc.perform(get("/internal/v1/movimientos/transferencia/{id}", id).with(serviceJwt()))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         mvc.perform(post("/internal/v1/movimientos/transferencia")
+                        .with(serviceJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk());
         mvc.perform(post("/internal/v1/movimientos/transferencia")
+                        .with(serviceJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(changedBody))
                 .andExpect(status().isConflict())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
+    }
+
+    @Test
+    void internalRoutesRequireTransferenciasServiceIdentity() throws Exception {
+        var mvc = MockMvcBuilders.webAppContextSetup(webContext)
+                .apply(springSecurity())
+                .build();
+
+        mvc.perform(get("/internal/v1/cuentas/{id}", SOURCE)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/internal/v1/cuentas/{id}", SOURCE).with(jwt().jwt(token -> token.claim("azp", "banco-cli"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/internal/v1/cuentas/{id}", SOURCE).with(serviceJwt())).andExpect(status().isOk());
+    }
+
+    private static RequestPostProcessor serviceJwt() {
+        return jwt().jwt(token -> token.claim("azp", "transferencias-service"));
     }
 
     private List<TransferResult> concurrent(int requests, java.util.function.IntFunction<TransferInstruction> commands)

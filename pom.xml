@@ -19,6 +19,7 @@
 
     <modules>
         <module>services/contabilidad</module>
+        <module>services/gateway</module>
     </modules>
 
     <properties>
