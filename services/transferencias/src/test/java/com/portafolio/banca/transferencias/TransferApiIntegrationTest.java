@@ -1,6 +1,7 @@
 package com.portafolio.banca.transferencias;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.portafolio.banca.transferencias.application.AccountsPort;
 import com.portafolio.banca.transferencias.application.LedgerPort;
+import com.portafolio.banca.transferencias.application.RiskPort;
 import com.portafolio.banca.transferencias.application.TransferService;
 import com.portafolio.banca.transferencias.domain.AccountSnapshot;
 import java.math.BigDecimal;
@@ -68,11 +70,15 @@ class TransferApiIntegrationTest {
     @MockitoBean
     LedgerPort ledger;
 
+    @MockitoBean
+    RiskPort risk;
+
     @Test
     void createsAndHidesTransfersByOwner() throws Exception {
         when(accounts.byId(SOURCE))
                 .thenReturn(Optional.of(new AccountSnapshot(SOURCE, OWNER, "PEN", "ACTIVA", new BigDecimal("500.00"))));
         when(ledger.transfer(any())).thenReturn(new LedgerPort.LedgerResult("CONFIRMADA", "NONE"));
+        when(risk.evaluate(any())).thenReturn(new RiskPort.RiskDecision("APROBADA", "NONE", "demo-v1"));
         var mvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(springSecurity())
                 .build();
@@ -104,6 +110,7 @@ class TransferApiIntegrationTest {
         when(accounts.byId(SOURCE))
                 .thenReturn(Optional.of(new AccountSnapshot(SOURCE, OWNER, "PEN", "ACTIVA", new BigDecimal("500.00"))));
         when(ledger.transfer(any())).thenReturn(new LedgerPort.LedgerResult("CONFIRMADA", "NONE"));
+        when(risk.evaluate(any())).thenReturn(new RiskPort.RiskDecision("APROBADA", "NONE", "demo-v1"));
         UUID key = UUID.randomUUID();
         var start = new CountDownLatch(1);
         try (var pool = Executors.newFixedThreadPool(10)) {
@@ -157,6 +164,32 @@ class TransferApiIntegrationTest {
                                  "importe":"21.00","moneda":"PEN"}
                                 """))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void riskFailureRejectsWithoutCallingLedger() {
+        when(accounts.byId(SOURCE))
+                .thenReturn(
+                        Optional.of(new AccountSnapshot(SOURCE, OWNER, "PEN", "ACTIVA", new BigDecimal("5000.00"))));
+        when(risk.evaluate(any())).thenThrow(new IllegalStateException("simulated timeout"));
+        var result = service.create(OWNER, UUID.randomUUID(), SOURCE, DESTINATION, "100.00", "PEN")
+                .transfer();
+        org.assertj.core.api.Assertions.assertThat(result.state()).isEqualTo("RECHAZADA");
+        org.assertj.core.api.Assertions.assertThat(result.reasonCode()).isEqualTo("RIESGO_NO_DISPONIBLE");
+        verify(ledger, never()).transfer(any());
+    }
+
+    @Test
+    void riskRejectionRejectsWithoutCallingLedger() {
+        when(accounts.byId(SOURCE))
+                .thenReturn(
+                        Optional.of(new AccountSnapshot(SOURCE, OWNER, "PEN", "ACTIVA", new BigDecimal("5000.00"))));
+        when(risk.evaluate(any())).thenReturn(new RiskPort.RiskDecision("RECHAZADA", "RISK_REJECTED", "demo-v1"));
+        var result = service.create(OWNER, UUID.randomUUID(), SOURCE, DESTINATION, "3000.01", "PEN")
+                .transfer();
+        org.assertj.core.api.Assertions.assertThat(result.state()).isEqualTo("RECHAZADA");
+        org.assertj.core.api.Assertions.assertThat(result.reasonCode()).isEqualTo("RISK_REJECTED");
+        verify(ledger, never()).transfer(any());
     }
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor user(String subject) {

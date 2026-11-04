@@ -23,6 +23,7 @@ server:
 
 clients:
   contabilidad-url: ${CONTABILIDAD_URL:http://localhost:8082}
+  riesgo-url: ${RIESGO_URL:http://localhost:8083}
   token-url: ${OIDC_TOKEN_URL:http://localhost:8180/realms/banco-demo/protocol/openid-connect/token}
   service-client-secret: ${SERVICE_CLIENT_SECRET:local-transferencias-service-only}
 

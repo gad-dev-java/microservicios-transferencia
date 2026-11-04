@@ -20,11 +20,13 @@ public class TransferService {
     private final TransferStore store;
     private final AccountsService accounts;
     private final LedgerPort ledger;
+    private final RiskPort risk;
 
-    public TransferService(TransferStore store, AccountsService accounts, LedgerPort ledger) {
+    public TransferService(TransferStore store, AccountsService accounts, LedgerPort ledger, RiskPort risk) {
         this.store = store;
         this.accounts = accounts;
         this.ledger = ledger;
+        this.risk = risk;
     }
 
     public Creation create(String owner, UUID key, UUID source, UUID destination, String amount, String currency) {
@@ -54,7 +56,17 @@ public class TransferService {
             return existing(store.byKey(owner, key).orElseThrow(), hash);
         }
         store.state(id, "RECIBIDA", "EVALUANDO", null);
-        // La evaluación de Riesgo se incorpora en HU-06 antes de la llamada contable.
+        try {
+            RiskPort.RiskDecision decision = risk.evaluate(candidate);
+            if (!"APROBADA".equals(decision.decision())) {
+                store.state(id, "EVALUANDO", "RECHAZADA", "RISK_REJECTED");
+                return new Creation(store.byId(id).orElseThrow(), true);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("Riesgo no disponible transferId={}", id);
+            store.state(id, "EVALUANDO", "RECHAZADA", "RIESGO_NO_DISPONIBLE");
+            return new Creation(store.byId(id).orElseThrow(), true);
+        }
         store.state(id, "EVALUANDO", "CONTABILIZANDO", null);
         try {
             LedgerPort.LedgerResult result = ledger.transfer(candidate);

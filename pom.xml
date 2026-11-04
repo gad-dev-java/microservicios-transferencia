@@ -21,6 +21,7 @@
         <module>services/contabilidad</module>
         <module>services/gateway</module>
         <module>services/transferencias</module>
+        <module>services/riesgo</module>
     </modules>
 
     <properties>
