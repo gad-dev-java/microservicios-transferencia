@@ -1,7 +1,9 @@
 package com.portafolio.banca.transferencias.client;
 
 import com.portafolio.banca.transferencias.application.AccountsPort;
+import com.portafolio.banca.transferencias.application.LedgerPort;
 import com.portafolio.banca.transferencias.domain.AccountSnapshot;
+import com.portafolio.banca.transferencias.domain.Transfer;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -13,7 +15,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
-public class AccountingClient implements AccountsPort {
+public class AccountingClient implements AccountsPort, LedgerPort {
     private final RestClient client;
     private final ServiceTokenProvider tokens;
 
@@ -60,4 +62,32 @@ public class AccountingClient implements AccountsPort {
             return new AccountSnapshot(accountId, ownerSubject, currency, status, balance);
         }
     }
+
+    @Override
+    public LedgerResult transfer(Transfer transfer) {
+        LedgerResult response = client.post()
+                .uri("/internal/v1/movimientos/transferencia")
+                .headers(headers -> headers.setBearerAuth(tokens.token()))
+                .body(new LedgerCommand(
+                        transfer.id(),
+                        transfer.ownerSubject(),
+                        transfer.sourceAccountId(),
+                        transfer.destinationAccountId(),
+                        transfer.amount().toPlainString(),
+                        transfer.currency()))
+                .retrieve()
+                .body(LedgerResult.class);
+        if (response == null) {
+            throw new IllegalStateException("Contabilidad no devolvió resultado");
+        }
+        return response;
+    }
+
+    private record LedgerCommand(
+            UUID transferId,
+            String actorSubject,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            String amount,
+            String currency) {}
 }
