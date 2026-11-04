@@ -7,7 +7,7 @@ Esta guía adapta el enfoque de [Agents.md para Java y Spring Boot](https://jose
 ## Estado y stack reales
 
 - Java 21, Maven Wrapper, Spring Boot 4.1.2, PostgreSQL 17, Flyway, JUnit 5 y Testcontainers.
-- Monorepositorio Maven: `pom.xml` raíz agrega Contabilidad, Gateway, Transferencias y Riesgo, cada uno con su `pom.xml`.
+- Monorepositorio Maven: `pom.xml` raíz agrega Contabilidad, Gateway, Transferencias, Riesgo, Notificaciones, Historial y Config Server, cada uno con su `pom.xml`.
 - Contabilidad usa Spring JDBC y SQL explícito. No introducir JPA, Lombok, MapStruct, Kafka, Redis o Kubernetes por inercia; cada incorporación debe responder al backlog y a una decisión concreta.
 - Gateway publica la API; Transferencias autentica usuarios y Contabilidad y Riesgo exigen identidad de servicio en sus endpoints internos.
 

@@ -1,0 +1,6 @@
+banca:
+  config:
+    revision: h5-v1
+  riesgo:
+    max-importe: '3000.00'
+    version-regla: demo-v1

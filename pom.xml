@@ -24,6 +24,7 @@
         <module>services/riesgo</module>
         <module>services/notificaciones</module>
         <module>services/historial</module>
+        <module>services/config-server</module>
     </modules>
 
     <properties>

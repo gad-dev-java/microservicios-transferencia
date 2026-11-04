@@ -1,0 +1,6 @@
+banca:
+  config:
+    revision: h5-v1
+  transferencias:
+    circuito:
+      espera-abierto: 15s

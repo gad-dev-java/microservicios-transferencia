@@ -8,31 +8,45 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class RiskService {
+    private static final Logger log = LoggerFactory.getLogger(RiskService.class);
     private final JdbcTemplate jdbc;
     private final MeterRegistry meters;
+    private final BigDecimal maxAmount;
+    private final String ruleVersion;
 
-    public RiskService(JdbcTemplate jdbc, MeterRegistry meters) {
+    public RiskService(
+            JdbcTemplate jdbc,
+            MeterRegistry meters,
+            @Value("${banca.riesgo.max-importe:3000.00}") BigDecimal maxAmount,
+            @Value("${banca.riesgo.version-regla:demo-v1}") String ruleVersion,
+            @Value("${banca.config.revision:local-fallback}") String configRevision) {
         this.jdbc = jdbc;
         this.meters = meters;
+        this.maxAmount = maxAmount;
+        this.ruleVersion = ruleVersion;
+        log.info("Configuración no sensible de Riesgo cargada revision={}", configRevision);
     }
 
     public EvaluationResponse evaluate(EvaluationRequest request) {
         validate(request);
         String hash = fingerprint(request);
         BigDecimal amount = new BigDecimal(request.amount());
-        boolean approved = amount.compareTo(new BigDecimal("3000.00")) <= 0;
+        boolean approved = amount.compareTo(maxAmount) <= 0;
         String decision = approved ? "APROBADA" : "RECHAZADA";
         String reason = approved ? "NONE" : "RISK_REJECTED";
         int inserted = jdbc.update("""
                 INSERT INTO evaluaciones (transfer_id, request_hash, decision, reason_code, rule_version)
-                VALUES (?, ?, ?, ?, 'demo-v1') ON CONFLICT (transfer_id) DO NOTHING
-                """, request.transferId(), hash, decision, reason);
+                VALUES (?, ?, ?, ?, ?) ON CONFLICT (transfer_id) DO NOTHING
+                """, request.transferId(), hash, decision, reason, ruleVersion);
         var saved = jdbc.queryForObject(
                 "SELECT request_hash, decision, reason_code, rule_version FROM evaluaciones WHERE transfer_id = ?",
                 (rs, row) -> new Saved(

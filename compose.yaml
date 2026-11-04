@@ -70,6 +70,23 @@ services:
       retries: 12
       start_period: 20s
 
+  config-server:
+    build:
+      context: .
+      args:
+        APP_MODULE: config-server
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      CONFIG_REPO_LOCATION: file:/config-repo
+    volumes:
+      - ./infra/config-repo:/config-repo:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8888/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
   kafka:
     image: apache/kafka:4.4.0
     hostname: kafka
@@ -185,6 +202,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/riesgo
       DB_USER: banco_app
       DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      CONFIG_SERVER_URL: http://config-server:8888
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
@@ -196,6 +214,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+      config-server:
+        condition: service_healthy
 
   transferencias:
     build:
@@ -207,6 +227,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/transferencias
       DB_USER: banco_app
       DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      CONFIG_SERVER_URL: http://config-server:8888
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       OIDC_TOKEN_URL: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/token
@@ -224,6 +245,8 @@ services:
         condition: service_started
       riesgo:
         condition: service_started
+      config-server:
+        condition: service_healthy
 
   gateway:
     build:

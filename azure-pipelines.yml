@@ -65,6 +65,8 @@ stages:
               module: notificaciones
             historial:
               module: historial
+            config_server:
+              module: config-server
         steps:
           - task: Docker@2
             displayName: Construir $(module)

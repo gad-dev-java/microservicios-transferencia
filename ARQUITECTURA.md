@@ -40,7 +40,7 @@ flowchart LR
     config --> historial
 ```
 
-El proveedor de identidad, Redis e Historial ya están incorporados. Config Server corresponde a la siguiente etapa. El flujo principal de transferencias funciona sin Config Server ni MongoDB. Cada servicio valida los permisos que le corresponden; el gateway no es la única barrera de autorización.
+El proveedor de identidad, Redis, Historial y Config Server ya están incorporados. Kubernetes corresponde a la siguiente etapa. El flujo principal de transferencias puede usar valores locales de respaldo si Config Server no está disponible y no depende de MongoDB para actualizar saldos. Cada servicio valida los permisos que le corresponden; el gateway no es la única barrera de autorización.
 
 ## Responsabilidades y conexiones
 
