@@ -14,10 +14,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.portafolio.banca.transferencias.application.AccountsPort;
 import com.portafolio.banca.transferencias.application.LedgerPort;
+import com.portafolio.banca.transferencias.application.ReconciliationJob;
 import com.portafolio.banca.transferencias.application.RiskPort;
 import com.portafolio.banca.transferencias.application.TransferService;
+import com.portafolio.banca.transferencias.application.TransferStore;
 import com.portafolio.banca.transferencias.domain.AccountSnapshot;
+import com.portafolio.banca.transferencias.domain.Transfer;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -62,7 +66,13 @@ class TransferApiIntegrationTest {
     TransferService service;
 
     @Autowired
+    ReconciliationJob reconciliation;
+
+    @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    TransferStore store;
 
     @MockitoBean
     AccountsPort accounts;
@@ -190,6 +200,58 @@ class TransferApiIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(result.state()).isEqualTo("RECHAZADA");
         org.assertj.core.api.Assertions.assertThat(result.reasonCode()).isEqualTo("RISK_REJECTED");
         verify(ledger, never()).transfer(any());
+    }
+
+    @Test
+    void reconcilesLostLedgerResponseWithoutSecondCommand() {
+        when(accounts.byId(SOURCE))
+                .thenReturn(Optional.of(new AccountSnapshot(SOURCE, OWNER, "PEN", "ACTIVA", new BigDecimal("500.00"))));
+        when(risk.evaluate(any())).thenReturn(new RiskPort.RiskDecision("APROBADA", "NONE", "demo-v1"));
+        when(ledger.transfer(any()))
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("lost response"));
+        var created = service.create(OWNER, UUID.randomUUID(), SOURCE, DESTINATION, "40.00", "PEN")
+                .transfer();
+        org.assertj.core.api.Assertions.assertThat(created.state()).isEqualTo("PENDIENTE_CONCILIACION");
+        when(ledger.result(created.id())).thenReturn(Optional.of(new LedgerPort.LedgerResult("CONFIRMADA", "NONE")));
+        jdbc.update(
+                "UPDATE transferencias SET next_attempt_at = now() - interval '1 second' WHERE id = ?", created.id());
+        reconciliation.reconcile();
+        org.assertj.core.api.Assertions.assertThat(
+                        service.own(OWNER, created.id()).state())
+                .isEqualTo("CONFIRMADA");
+        verify(ledger, times(1)).transfer(any());
+    }
+
+    @Test
+    void recoversCrashInAccountingStateWithSameTransferId() {
+        UUID id = UUID.randomUUID();
+        UUID key = UUID.randomUUID();
+        var interrupted = new Transfer(
+                id,
+                OWNER,
+                key,
+                "0".repeat(64),
+                SOURCE,
+                DESTINATION,
+                new BigDecimal("50.00"),
+                "PEN",
+                "RECIBIDA",
+                null,
+                0,
+                Instant.now(),
+                Instant.now());
+        store.insert(interrupted);
+        store.state(id, "RECIBIDA", "EVALUANDO", null);
+        store.state(id, "EVALUANDO", "CONTABILIZANDO", null);
+        jdbc.update("UPDATE transferencias SET updated_at = now() - interval '10 seconds' WHERE id = ?", id);
+        when(ledger.result(id)).thenReturn(Optional.empty());
+        when(ledger.transfer(any())).thenReturn(new LedgerPort.LedgerResult("CONFIRMADA", "NONE"));
+        reconciliation.reconcile();
+        org.assertj.core.api.Assertions.assertThat(service.own(OWNER, id).state())
+                .isEqualTo("CONFIRMADA");
+        org.mockito.ArgumentCaptor<Transfer> command = org.mockito.ArgumentCaptor.forClass(Transfer.class);
+        verify(ledger).transfer(command.capture());
+        org.assertj.core.api.Assertions.assertThat(command.getValue().id()).isEqualTo(id);
     }
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor user(String subject) {

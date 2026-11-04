@@ -16,4 +16,8 @@ public interface TransferStore {
     void state(UUID id, String expected, String next, String reason);
 
     List<Transfer> page(String owner, Instant beforeTime, UUID beforeId, int limit);
+
+    List<Transfer> claimForRecovery(int limit);
+
+    void recoveryFailure(UUID id, String previousState, String errorCode);
 }

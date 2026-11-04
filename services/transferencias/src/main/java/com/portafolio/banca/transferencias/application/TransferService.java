@@ -8,6 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,6 +92,37 @@ public class TransferService {
             throw new InvalidTransferException("limit debe estar entre 1 y 100");
         }
         return store.page(owner, beforeTime, beforeId, limit);
+    }
+
+    public void recover(Transfer transfer) {
+        String state = transfer.state();
+        if ("RECIBIDA".equals(state)) {
+            store.state(transfer.id(), "RECIBIDA", "EVALUANDO", null);
+            state = "EVALUANDO";
+        }
+        if ("EVALUANDO".equals(state)) {
+            try {
+                RiskPort.RiskDecision decision = risk.evaluate(transfer);
+                if (!"APROBADA".equals(decision.decision())) {
+                    store.state(transfer.id(), "EVALUANDO", "RECHAZADA", "RISK_REJECTED");
+                    return;
+                }
+                store.state(transfer.id(), "EVALUANDO", "CONTABILIZANDO", null);
+                state = "CONTABILIZANDO";
+            } catch (RuntimeException exception) {
+                log.warn("Riesgo no disponible en recuperación transferId={}", transfer.id());
+                store.state(transfer.id(), "EVALUANDO", "RECHAZADA", "RIESGO_NO_DISPONIBLE");
+                return;
+            }
+        }
+        try {
+            Optional<LedgerPort.LedgerResult> result = ledger.result(transfer.id());
+            LedgerPort.LedgerResult settled = result.orElseGet(() -> ledger.transfer(transfer));
+            store.state(transfer.id(), state, settled.outcome(), settled.reasonCode());
+        } catch (RuntimeException exception) {
+            log.warn("Conciliación pendiente transferId={} intento={}", transfer.id(), transfer.attempts());
+            store.recoveryFailure(transfer.id(), state, "LEDGER_UNAVAILABLE");
+        }
     }
 
     private Creation existing(Transfer transfer, String hash) {

@@ -83,6 +83,23 @@ public class AccountingClient implements AccountsPort, LedgerPort {
         return response;
     }
 
+    @Override
+    public Optional<LedgerResult> result(UUID transferId) {
+        try {
+            LedgerResult response = client.get()
+                    .uri("/internal/v1/movimientos/transferencia/{id}", transferId)
+                    .headers(headers -> headers.setBearerAuth(tokens.token()))
+                    .retrieve()
+                    .body(LedgerResult.class);
+            return Optional.ofNullable(response);
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().value() == 404) {
+                return Optional.empty();
+            }
+            throw exception;
+        }
+    }
+
     private record LedgerCommand(
             UUID transferId,
             String actorSubject,

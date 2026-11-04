@@ -84,6 +84,34 @@ public class JdbcTransferStore implements TransferStore {
                 """, MAPPER, owner, Timestamp.from(beforeTime), beforeId, limit);
     }
 
+    @Override
+    public List<Transfer> claimForRecovery(int limit) {
+        return jdbc.query("""
+                WITH due AS (
+                    SELECT id FROM transferencias
+                    WHERE state IN ('RECIBIDA','EVALUANDO','CONTABILIZANDO','PENDIENTE_CONCILIACION')
+                      AND attempts < 10
+                      AND (next_attempt_at <= now()
+                           OR (next_attempt_at IS NULL AND updated_at < now() - interval '5 seconds'))
+                    ORDER BY created_at, id
+                    LIMIT ? FOR UPDATE SKIP LOCKED
+                )
+                UPDATE transferencias t
+                SET attempts = t.attempts + 1,
+                    next_attempt_at = now() + make_interval(secs => LEAST(60, power(2, LEAST(t.attempts + 1, 6))::int))
+                FROM due WHERE t.id = due.id RETURNING t.*
+                """, MAPPER, limit);
+    }
+
+    @Override
+    public void recoveryFailure(UUID id, String previousState, String errorCode) {
+        jdbc.update("""
+                UPDATE transferencias SET state = 'PENDIENTE_CONCILIACION',
+                  last_error_code = ?, updated_at = now()
+                WHERE id = ? AND state = ?
+                """, errorCode, id, previousState);
+    }
+
     private static Transfer from(ResultSet rs) throws SQLException {
         return new Transfer(
                 rs.getObject("id", UUID.class),
