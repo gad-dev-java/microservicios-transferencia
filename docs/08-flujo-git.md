@@ -1,6 +1,6 @@
 # Flujo de Git para las historias
 
-El repositorio remoto es `https://github.com/gad-dev-java/microservicios-transferencia.git`. `main` contiene hitos terminados y demostrables. H0 se publica como base inicial; desde H1, cada historia se desarrolla en una rama propia.
+El repositorio remoto es `https://github.com/gad-dev-java/microservicios-transferencia.git`. `main` contiene la base publicada. Cada historia se desarrolla y sube en una rama propia. Durante H2, las ramas HU-02 a HU-07 están apiladas: cada una nace de la historia anterior para mantener el código compilable.
 
 ## Nombres de ramas
 
@@ -14,11 +14,11 @@ Los nombres usan letras minúsculas, números y guiones, sin espacios ni tildes.
 
 ## Ciclo de una historia
 
-1. Actualizar `main` y crear la rama **antes** de empezar la historia.
+1. Crear la rama **antes** de empezar la historia, desde la última historia completada cuando haya dependencias directas.
 2. Implementar en cambios pequeños y hacer commits con mensajes que indiquen el resultado.
 3. Ejecutar las pruebas y comprobar los criterios de aceptación de la historia.
 4. Subir la rama a GitHub. Se puede subir durante el trabajo para respaldo; debe estar subida al terminar.
-5. Abrir un pull request hacia `main` con el ID de historia, resumen, pruebas y riesgos. Revisar el diff y el pipeline antes de fusionar.
+5. Abrir pull requests en orden; una rama apilada apunta inicialmente a su rama base, y se actualiza la base al fusionar la anterior. Revisar el diff y el pipeline antes de fusionar.
 6. Fusionar solo cuando la historia cumpla la [definición de terminado](05-pruebas-y-plan.md). Después, actualizar `main` y eliminar la rama terminada.
 
 Ejemplo para HU-01:

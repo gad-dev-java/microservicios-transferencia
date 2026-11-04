@@ -203,6 +203,42 @@ class TransferApiIntegrationTest {
     }
 
     @Test
+    void foreignSourceReturns404BeforeRiskAndLedger() throws Exception {
+        when(accounts.byId(DESTINATION))
+                .thenReturn(Optional.of(new AccountSnapshot(
+                        DESTINATION,
+                        "22222222-2222-4222-8222-222222222222",
+                        "PEN",
+                        "ACTIVA",
+                        new BigDecimal("500.00"))));
+        var mvc = MockMvcBuilders.webAppContextSetup(context)
+                .apply(springSecurity())
+                .build();
+        mvc.perform(post("/api/v1/transferencias")
+                        .with(user(OWNER))
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cuentaOrigenId":"cccccccc-cccc-4ccc-8ccc-ccccccccccc1",
+                                 "cuentaDestinoId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+                                 "importe":"10.00","moneda":"PEN"}
+                                """))
+                .andExpect(status().isNotFound());
+        verify(risk, never()).evaluate(any());
+        verify(ledger, never()).transfer(any());
+    }
+
+    @Test
+    void publicEndpointRejectsServiceIdentity() throws Exception {
+        var mvc = MockMvcBuilders.webAppContextSetup(context)
+                .apply(springSecurity())
+                .build();
+        mvc.perform(get("/api/v1/cuentas")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/cuentas").with(jwt().jwt(token -> token.claim("azp", "transferencias-service"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void reconcilesLostLedgerResponseWithoutSecondCommand() {
         when(accounts.byId(SOURCE))
                 .thenReturn(Optional.of(new AccountSnapshot(SOURCE, OWNER, "PEN", "ACTIVA", new BigDecimal("500.00"))));

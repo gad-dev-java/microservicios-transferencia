@@ -5,7 +5,7 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-local-dev-only}
-      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
     volumes:
@@ -29,6 +29,85 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  contabilidad:
+    build:
+      context: .
+      args:
+        APP_MODULE: contabilidad
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      SPRING_PROFILES_ACTIVE: local
+      DB_URL: jdbc:postgresql://postgres:5432/contabilidad
+      DB_USER: banco_app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  riesgo:
+    build:
+      context: .
+      args:
+        APP_MODULE: riesgo
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      DB_URL: jdbc:postgresql://postgres:5432/riesgo
+      DB_USER: banco_app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  transferencias:
+    build:
+      context: .
+      args:
+        APP_MODULE: transferencias
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      DB_URL: jdbc:postgresql://postgres:5432/transferencias
+      DB_USER: banco_app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+      OIDC_TOKEN_URL: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/token
+      SERVICE_CLIENT_SECRET: ${SERVICE_CLIENT_SECRET:-local-transferencias-service-only}
+      CONTABILIDAD_URL: http://contabilidad:8082
+      RIESGO_URL: http://riesgo:8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      contabilidad:
+        condition: service_started
+      riesgo:
+        condition: service_started
+
+  gateway:
+    build:
+      context: .
+      args:
+        APP_MODULE: gateway
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+      TRANSFERENCIAS_URL: http://transferencias:8081
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      transferencias:
+        condition: service_started
+      keycloak:
+        condition: service_started
 
 volumes:
   postgres_data:

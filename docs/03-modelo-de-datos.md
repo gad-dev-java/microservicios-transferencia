@@ -1,4 +1,4 @@
-# Modelo de datos preliminar
+# Modelo de datos
 
 Cada servicio es dueño de su base lógica y ejecuta sus propias migraciones Flyway. Para desarrollo local pueden residir en una misma instancia PostgreSQL con bases separadas. No hay claves foráneas entre servicios.
 
@@ -6,10 +6,9 @@ Cada servicio es dueño de su base lógica y ejecuta sus propias migraciones Fly
 
 | Tabla | Campos principales | Restricciones |
 | --- | --- | --- |
-| `transferencias` | `id uuid`, `owner_subject varchar(128)`, `source_account_id uuid`, `destination_account_id uuid`, `amount numeric(19,2)`, `currency char(3)`, `status varchar(32)`, `reason_code varchar(64)`, `idempotency_key uuid`, `request_hash char(64)`, `created_at`, `updated_at` | PK `id`; único `(owner_subject, idempotency_key)`; `amount > 0` |
-| `conciliaciones` | `transfer_id uuid`, `attempts int`, `next_attempt_at`, `last_error`, `updated_at` | PK/FK `transfer_id`; solo para resultados inciertos |
+| `transferencias` | `id uuid`, `owner_subject varchar(100)`, `source_account_id uuid`, `destination_account_id uuid`, `amount numeric(19,2)`, `currency char(3)`, `state varchar(32)`, `reason_code varchar(80)`, `idempotency_key uuid`, `request_hash char(64)`, `attempts`, `next_attempt_at`, `last_error_code`, `created_at`, `updated_at` | PK `id`; único `(owner_subject, idempotency_key)`; `amount > 0` |
 
-Índices: `(owner_subject, created_at DESC)` para historial propio y `(status, updated_at)` para conciliación.
+Índices: `(owner_subject, created_at DESC, id DESC)` para el listado propio y un índice parcial por `next_attempt_at` para conciliación. La conciliación comparte la fila de `transferencias` y reclama lotes con `FOR UPDATE SKIP LOCKED`.
 
 ## Contabilidad
 
@@ -29,7 +28,7 @@ En una sola transacción se bloquean las dos filas de `cuentas` en orden ascende
 
 | Tabla | Campos principales | Restricciones |
 | --- | --- | --- |
-| `decisiones` | `id uuid`, `transfer_id uuid`, `outcome varchar(16)`, `reason_code varchar(64)`, `rule_version varchar(32)`, `created_at` | PK `id`; único `transfer_id` |
+| `evaluaciones` | `transfer_id uuid`, `request_hash char(64)`, `decision varchar(16)`, `reason_code varchar(80)`, `rule_version varchar(32)`, `created_at` | PK `transfer_id`; conserva decisión inicial e impide cambiar el cuerpo |
 
 Las reglas de demostración son deterministas y versionadas. La misma solicitud de evaluación recibe la misma decisión.
 

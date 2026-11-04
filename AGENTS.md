@@ -7,9 +7,9 @@ Esta guía adapta el enfoque de [Agents.md para Java y Spring Boot](https://jose
 ## Estado y stack reales
 
 - Java 21, Maven Wrapper, Spring Boot 4.1.2, PostgreSQL 17, Flyway, JUnit 5 y Testcontainers.
-- Monorepositorio Maven: `pom.xml` raíz agrega un `pom.xml` por servicio. Hoy existe `services/contabilidad`; los demás servicios se incorporan según `docs/07-backlog-de-implementacion.md`.
+- Monorepositorio Maven: `pom.xml` raíz agrega Contabilidad, Gateway, Transferencias y Riesgo, cada uno con su `pom.xml`.
 - Contabilidad usa Spring JDBC y SQL explícito. No introducir JPA, Lombok, MapStruct, Kafka, Redis o Kubernetes por inercia; cada incorporación debe responder al backlog y a una decisión concreta.
-- La API pública aún no está implementada. Los endpoints actuales de Contabilidad son internos y se limitan a `127.0.0.1` hasta añadir identidad de servicio en H2.
+- Gateway publica la API; Transferencias autentica usuarios y Contabilidad y Riesgo exigen identidad de servicio en sus endpoints internos.
 
 ## Arquitectura de Contabilidad: hexagonal pragmática
 
@@ -39,7 +39,7 @@ El puerto `AccountingStore` invierte la dependencia entre el caso de uso y la ba
 - Bloquear ambas cuentas en orden estable, impedir saldos negativos y persistir un único resultado por `transferId`. Repetir el mismo comando conserva el resultado; cambiar su contenido con el mismo ID produce conflicto.
 - Cada servicio es dueño de su base lógica y sus migraciones Flyway. No compartir entidades ni repositorios entre servicios ni crear claves foráneas entre bases.
 - Mantener `BigDecimal` y `numeric(19,2)` para importes. No usar `double` ni `float` para dinero.
-- No registrar credenciales, tokens, cuerpos completos ni datos personales. La autenticación y autorización previstas para H2 no deben describirse como ya implementadas.
+- No registrar credenciales, tokens, cuerpos completos ni datos personales. Mantener la validación de firma, emisor, audiencia y cliente autorizado en cada servicio.
 - Mantener los límites entre capas cuando se agreguen funcionalidades; crear una capa o interfaz adicional solo si cumple una responsabilidad concreta.
 
 ## Comandos desde la raíz

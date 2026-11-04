@@ -1,6 +1,6 @@
 # Simulador de transferencias bancarias
 
-Proyecto de portafolio para demostrar backend Java con microservicios en un dominio bancario simulado. HU-01 implementa el núcleo de Contabilidad; la API pública y la autenticación llegan en H2.
+MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQL y Keycloak. Gateway publica la API; Transferencias coordina Riesgo y Contabilidad.
 
 - [Arquitectura y conexiones](ARQUITECTURA.md)
 - [Diagrama editable en draw.io](ARQUITECTURA.drawio)
@@ -12,43 +12,38 @@ Proyecto de portafolio para demostrar backend Java con microservicios en un domi
 
 El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. Kafka, Notificaciones y observabilidad completan la siguiente entrega; Redis, MongoDB, Config Server y Kubernetes son ampliaciones posteriores.
 
-## Estado actual: HU-01 (H1)
+## Estado actual: H2, MVP seguro
 
-Contabilidad registra una transferencia interna en una transacción PostgreSQL. Guarda el resultado por `transferId`, bloquea ambas cuentas en orden estable y crea exactamente dos asientos opuestos cuando confirma. Los rechazos por saldo o estado se persisten sin mover fondos.
+Contabilidad registra el movimiento con dos asientos atómicos e idempotencia por `transferId`. Riesgo guarda una decisión reproducible; Transferencias persiste el estado público, exige `Idempotency-Key` y concilia resultados inciertos. Los servicios validan JWT y los endpoints internos exigen identidad de servicio.
 
 ### Requisitos locales
 
-- JDK 21 en `JAVA_HOME`.
-- Docker Desktop activo para PostgreSQL y las pruebas con Testcontainers.
-- Maven Wrapper incluido en el repositorio; no hace falta instalar Maven por separado.
+- Docker Desktop para ejecutar el stack y las pruebas con Testcontainers.
+- JDK 21 para ejecutar Maven Wrapper fuera de Docker.
 
 ### Comandos
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d --build
+docker compose ps
 .\mvnw.cmd clean verify
-java -jar services/contabilidad/target/contabilidad-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
+pwsh -NoProfile -File infra/scripts/verify-h2.ps1
 ```
 
-PostgreSQL queda disponible en `localhost:5432`, con base inicial `contabilidad`, usuario `banco_app` y contraseña local de demostración `local-dev-only`. Las bases `transferencias`, `riesgo` y `notificaciones` se crean al inicializar un volumen nuevo. Puedes cambiar puerto y contraseña con las variables de [.env.example](.env.example). No uses esos valores de demostración en un entorno compartido.
+Gateway escucha en `http://localhost:8080` y Keycloak en `http://localhost:8180`. PostgreSQL queda ligado a `127.0.0.1:5432` para desarrollo; Contabilidad, Riesgo y Transferencias no publican puertos al host. La primera construcción de imágenes descarga Maven y dependencias. Puedes configurar puertos y credenciales locales mediante [.env.example](.env.example). Estos secretos son solo de demostración.
 
-El perfil `local` ejecuta la migración Flyway y carga las tres [cuentas ficticias](infra/fixtures/README.md). La API interna escucha en `127.0.0.1:8082`. No hay autenticación en esta fase; no se debe exponer el puerto fuera del equipo. H2 añadirá identidad de servicio antes de conectar el gateway.
+El perfil `local` carga cuatro [cuentas ficticias](infra/fixtures/README.md), incluida una cuenta destino inactiva. Keycloak importa `banco-demo` al crear su volumen por primera vez. Los usuarios son `cliente1` / `cliente1-local` y `cliente2` / `cliente2-local`. El password grant del cliente `banco-cli` existe solo para la demo local.
 
-En otra terminal, prueba una transferencia de 100.00 PEN:
+Obtén un JWT y solicita una transferencia por el gateway:
 
 ```powershell
-$transferId = [guid]::NewGuid().ToString()
-$body = @{
-  transferId = $transferId
-  actorSubject = '11111111-1111-4111-8111-111111111111'
-  sourceAccountId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-  destinationAccountId = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1'
-  amount = '100.00'
-  currency = 'PEN'
-} | ConvertTo-Json
-Invoke-RestMethod http://127.0.0.1:8082/internal/v1/movimientos/transferencia -Method Post -ContentType application/json -Body $body
-Invoke-RestMethod "http://127.0.0.1:8082/internal/v1/movimientos/transferencia/$transferId"
-Invoke-RestMethod http://127.0.0.1:8082/internal/v1/cuentas/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+$token = (Invoke-RestMethod -Method Post -Uri 'http://localhost:8180/realms/banco-demo/protocol/openid-connect/token' -Body @{grant_type='password';client_id='banco-cli';username='cliente1';password='cliente1-local'}).access_token
+$headers = @{Authorization="Bearer $token"; 'Idempotency-Key'=[guid]::NewGuid().ToString()}
+$body = @{cuentaOrigenId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';cuentaDestinoId='cccccccc-cccc-4ccc-8ccc-ccccccccccc1';importe='10.00';moneda='PEN'} | ConvertTo-Json
+Invoke-RestMethod 'http://localhost:8080/api/v1/cuentas' -Headers @{Authorization="Bearer $token"}
+Invoke-RestMethod 'http://localhost:8080/api/v1/transferencias' -Method Post -Headers $headers -ContentType 'application/json' -Body $body
 ```
 
-Repetir el mismo `transferId` y cuerpo devuelve el mismo resultado. Reutilizarlo con otro importe devuelve `409`. Para reiniciar los saldos de demostración en un volumen local nuevo, usa `docker compose down -v` **solo si deseas borrar todos los datos locales de PostgreSQL**.
+La misma clave y el mismo cuerpo devuelven `200` con el mismo identificador; un cuerpo distinto devuelve `409`. Una respuesta `202` indica que la conciliación continúa y se puede consultar el estado con `GET /api/v1/transferencias/{id}`. El script comprueba P-01 a P-08 y P-10 por el gateway; detiene y vuelve a iniciar Riesgo durante P-08. P-09 se prueba con Testcontainers en `TransferApiIntegrationTest`, simulando la pérdida de la respuesta tras el asiento. El script utiliza saldos de demostración y P-07 requiere saldo suficiente en la cuenta de origen. El pipeline ejecuta `verify` y valida Compose.
+
+Las ramas HU-02 a HU-07 se apilan en orden. La rama `feature/TEC-12-demo-integral-H2` añade Compose completo y esta guía; usa esa rama para reproducir el MVP. Kafka, Redis, MongoDB, Config Server y Kubernetes corresponden a etapas posteriores.
