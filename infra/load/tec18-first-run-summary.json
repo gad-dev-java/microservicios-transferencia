@@ -1,0 +1,165 @@
+{
+    "metrics": {
+        "vus": {
+            "min": 0,
+            "max": 1,
+            "value": 0
+        },
+        "vus_max": {
+            "value": 60,
+            "min": 60,
+            "max": 60
+        },
+        "http_req_duration{scenario:mixed_api}": {
+            "max": 66.645059,
+            "avg": 12.46909693579482,
+            "min": 4.890932,
+            "med": 7.363675,
+            "p(50)": 7.363675,
+            "p(95)": 32.708351,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "unexpected_responses": {
+            "passes": 0,
+            "fails": 6001,
+            "value": 0
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "max": 0
+        },
+        "iteration_duration": {
+            "p(95)": 34.073543,
+            "max": 96.712862,
+            "avg": 12.997917570404871,
+            "min": 5.088679,
+            "med": 7.61252,
+            "p(50)": 7.61252
+        },
+        "http_req_duration": {
+            "avg": 12.46909693579482,
+            "min": 4.890932,
+            "med": 7.363675,
+            "p(50)": 7.363675,
+            "p(95)": 32.708351,
+            "max": 66.645059
+        },
+        "checks": {
+            "passes": 6001,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 6121,
+            "value": 0
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 12.46909693579482,
+            "min": 4.890932,
+            "med": 7.363675,
+            "p(50)": 7.363675,
+            "p(95)": 32.708351,
+            "max": 66.645059
+        },
+        "dropped_iterations": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_req_blocked": {
+            "max": 20.035184,
+            "avg": 0.015048619506616734,
+            "min": 0.003267,
+            "med": 0.00555,
+            "p(50)": 0.00555,
+            "p(95)": 0.008407
+        },
+        "http_reqs": {
+            "count": 6121,
+            "rate": 20.4026464288669
+        },
+        "data_received": {
+            "count": 3632985,
+            "rate": 12109.542302953278
+        },
+        "iterations": {
+            "count": 6001,
+            "rate": 20.002659895381516
+        },
+        "http_req_waiting": {
+            "p(95)": 32.25574,
+            "max": 65.539918,
+            "avg": 12.25567230419865,
+            "min": 4.77206,
+            "med": 7.214177,
+            "p(50)": 7.214177
+        },
+        "http_req_failed{scenario:mixed_api}": {
+            "passes": 0,
+            "fails": 6121,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_sending": {
+            "p(95)": 0.052063,
+            "max": 0.589073,
+            "avg": 0.0389026912269237,
+            "min": 0.01011,
+            "med": 0.036361,
+            "p(50)": 0.036361
+        },
+        "http_req_receiving": {
+            "p(95)": 0.474916,
+            "max": 3.135552,
+            "avg": 0.17452194036922117,
+            "min": 0.067672,
+            "med": 0.108622,
+            "p(50)": 0.108622
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "p(50)": 0,
+            "p(95)": 0,
+            "max": 19.949817,
+            "avg": 0.007040440777650707,
+            "min": 0
+        },
+        "data_sent": {
+            "count": 7325865,
+            "rate": 24418.727884432446
+        }
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "transferencia confirmada": {
+                    "fails": 0,
+                    "name": "transferencia confirmada",
+                    "path": "::transferencia confirmada",
+                    "id": "aa718fd472a1e18e5edac6572385eb8e",
+                    "passes": 1201
+                },
+                "cuentas 200": {
+                    "name": "cuentas 200",
+                    "path": "::cuentas 200",
+                    "id": "d58fb36b11cf33378c266e558cd9e2fd",
+                    "passes": 4800,
+                    "fails": 0
+                }
+            },
+        "name": "",
+        "path": ""
+    }
+}

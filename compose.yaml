@@ -100,7 +100,7 @@ services:
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       KAFKA_BOOTSTRAP: kafka:19092
       OUTBOX_ENABLED: "true"
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
@@ -125,7 +125,7 @@ services:
       KAFKA_BOOTSTRAP: kafka:19092
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
@@ -147,7 +147,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
@@ -173,7 +173,7 @@ services:
       SERVICE_CLIENT_SECRET: ${SERVICE_CLIENT_SECRET:-local-transferencias-service-only}
       CONTABILIDAD_URL: http://contabilidad:8082
       RIESGO_URL: http://riesgo:8083
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
@@ -196,7 +196,7 @@ services:
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       TRANSFERENCIAS_URL: http://transferencias:8081
       NOTIFICACIONES_URL: http://notificaciones:8084
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"

@@ -51,6 +51,6 @@ El script H2 comprueba P-01 a P-08 y P-10 por el gateway. P-09 se prueba con Tes
 
 ## Observabilidad local
 
-Zipkin está en `http://localhost:9411/zipkin/` y Prometheus en `http://localhost:9090`. Una solicitud de transferencia aparece con el mismo `traceId` en Gateway, Transferencias, Riesgo y Contabilidad. Prometheus consulta `/actuator/prometheus` de los cuatro servicios internos; ese endpoint no se enruta por el gateway. Incluye métricas HTTP, decisiones de Riesgo, transferencias por estado, conciliación pendiente, entregas simuladas y atraso de outbox. Las sondas `/actuator/health/liveness` y `/actuator/health/readiness` están habilitadas en Compose.
+Zipkin está en `http://localhost:9411/zipkin/` y Prometheus en `http://localhost:9090`. Las solicitudes muestreadas aparecen con el mismo `traceId` en Gateway, Transferencias, Riesgo y Contabilidad. Compose muestrea el 10 % por defecto para mantener estable el Zipkin local bajo carga; `TRACING_SAMPLE_PROBABILITY=1.0` permite una demostración breve de trazas completas. Prometheus consulta `/actuator/prometheus` de los cuatro servicios internos; ese endpoint no se enruta por el gateway. Incluye métricas HTTP, decisiones de Riesgo, transferencias por estado, conciliación pendiente, entregas simuladas y atraso de outbox. Las sondas `/actuator/health/liveness` y `/actuator/health/readiness` están habilitadas en Compose.
 
 Las ramas HU-02 a HU-08 se apilan en orden. Usa la rama final del hito para reproducir su estado. Redis, MongoDB, Config Server y Kubernetes corresponden a etapas posteriores.
