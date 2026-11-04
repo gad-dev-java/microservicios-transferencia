@@ -2,7 +2,7 @@
 
 Estos CSV preparan dos usuarios y tres cuentas ficticias para las pruebas de aceptación. Los `subject` se usarán como identificadores de usuario al configurar Keycloak en H2.
 
-La carga automática en PostgreSQL llegará con las migraciones y el cargador de datos de Contabilidad en H1. En H0, los CSV son contratos de prueba y no crean tablas ni saldos.
+El perfil `local` de Contabilidad carga estos mismos identificadores y saldos mediante `db/local/V2__seed_cuentas_demo.sql`. El perfil por defecto crea solo el esquema; las pruebas insertan sus propios datos y no dependen del seed local.
 
 | Usuario | Cuenta | Saldo inicial |
 | --- | --- | ---: |

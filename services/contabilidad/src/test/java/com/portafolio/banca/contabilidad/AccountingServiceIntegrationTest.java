@@ -1,0 +1,195 @@
+package com.portafolio.banca.contabilidad;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.dao.DataAccessException;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+
+@SpringBootTest
+@Testcontainers
+class AccountingServiceIntegrationTest {
+    private static final UUID SOURCE = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+    private static final UUID DESTINATION = UUID.fromString("cccccccc-cccc-4ccc-8ccc-ccccccccccc1");
+    private static final String OWNER = "11111111-1111-4111-8111-111111111111";
+
+    @Container
+    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine");
+
+    @DynamicPropertySource
+    static void datasource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
+
+    @Autowired
+    AccountingService accounting;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @BeforeEach
+    void seed() {
+        jdbc.update("DELETE FROM asientos");
+        jdbc.update("DELETE FROM comandos");
+        jdbc.update("DELETE FROM movimientos");
+        jdbc.update("DELETE FROM cuentas");
+        jdbc.update("""
+                INSERT INTO cuentas (id, owner_subject, currency, status, opening_balance, balance)
+                VALUES (?, ?, 'PEN', 'ACTIVA', 4000.00, 4000.00)
+                """, SOURCE, OWNER);
+        jdbc.update("""
+                INSERT INTO cuentas (id, owner_subject, currency, status, opening_balance, balance)
+                VALUES (?, ?, 'PEN', 'ACTIVA', 200.00, 200.00)
+                """, DESTINATION, "22222222-2222-4222-8222-222222222222");
+    }
+
+    @Test
+    void confirmsWithExactlyTwoBalancedEntries() {
+        UUID transferId = UUID.randomUUID();
+        TransferResult result = accounting.transfer(command(transferId, "100.00"));
+
+        assertThat(result.outcome()).isEqualTo("CONFIRMADA");
+        assertThat(result.movementId()).isNotNull();
+        assertThat(accounting.result(transferId)).isEqualTo(result);
+        assertBalance(SOURCE, "3900.00");
+        assertBalance(DESTINATION, "300.00");
+        assertThat(count("movimientos")).isEqualTo(1);
+        assertThat(count("asientos")).isEqualTo(2);
+        List<BigDecimal> deltas = jdbc.query("SELECT delta FROM asientos WHERE movement_id = ? ORDER BY delta",
+                (rs, row) -> rs.getBigDecimal(1), result.movementId());
+        assertThat(deltas).containsExactly(new BigDecimal("-100.00"), new BigDecimal("100.00"));
+    }
+
+    @Test
+    void rejectsInsufficientFundsAndRemembersRejection() {
+        UUID id = UUID.randomUUID();
+        TransferResult result = accounting.transfer(command(id, "4000.01"));
+
+        assertThat(result.outcome()).isEqualTo("RECHAZADA");
+        assertThat(result.reasonCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(accounting.transfer(command(id, "4000.01"))).isEqualTo(result);
+        assertThat(accounting.result(id)).isEqualTo(result);
+        assertBalance(SOURCE, "4000.00");
+        assertBalance(DESTINATION, "200.00");
+        assertThat(count("movimientos")).isZero();
+        assertThat(count("asientos")).isZero();
+    }
+
+    @Test
+    void rejectsInactiveAccountWithoutMovement() {
+        jdbc.update("UPDATE cuentas SET status = 'INACTIVA' WHERE id = ?", DESTINATION);
+
+        TransferResult result = accounting.transfer(command(UUID.randomUUID(), "100.00"));
+
+        assertThat(result.reasonCode()).isEqualTo("ACCOUNT_INACTIVE");
+        assertBalance(SOURCE, "4000.00");
+        assertBalance(DESTINATION, "200.00");
+        assertThat(count("asientos")).isZero();
+    }
+
+    @Test
+    void repeatedTransferIdWithChangedPayloadConflicts() {
+        UUID id = UUID.randomUUID();
+        accounting.transfer(command(id, "100.00"));
+
+        assertThatThrownBy(() -> accounting.transfer(command(id, "101.00")))
+                .isInstanceOf(IdempotencyConflictException.class);
+        assertThat(count("movimientos")).isEqualTo(1);
+        assertBalance(SOURCE, "3900.00");
+    }
+
+    @Test
+    void concurrentRetriesCreateOnlyOneMovement() throws Exception {
+        UUID id = UUID.randomUUID();
+        List<TransferResult> results = concurrent(10, index -> command(id, "100.00"));
+
+        assertThat(results).hasSize(10).allMatch(result -> "CONFIRMADA".equals(result.outcome()))
+                .allMatch(result -> result.movementId().equals(results.getFirst().movementId()));
+        assertThat(count("movimientos")).isEqualTo(1);
+        assertThat(count("asientos")).isEqualTo(2);
+        assertBalance(SOURCE, "3900.00");
+    }
+
+    @Test
+    void concurrentTransfersCannotOverdrawSource() throws Exception {
+        List<TransferResult> results = concurrent(2, index -> command(UUID.randomUUID(), "2500.00"));
+
+        assertThat(results.stream().filter(result -> "CONFIRMADA".equals(result.outcome())).count()).isEqualTo(1);
+        assertThat(results.stream().filter(result -> "RECHAZADA".equals(result.outcome())).count()).isEqualTo(1);
+        assertBalance(SOURCE, "1500.00");
+        assertBalance(DESTINATION, "2700.00");
+        assertThat(count("movimientos")).isEqualTo(1);
+        assertThat(count("asientos")).isEqualTo(2);
+    }
+
+    @Test
+    void databaseFailureRollsBackAllWrites() {
+        jdbc.update("UPDATE cuentas SET balance = 99999999999999999.99 WHERE id = ?", DESTINATION);
+
+        assertThatThrownBy(() -> accounting.transfer(command(UUID.randomUUID(), "100.00")))
+                .isInstanceOf(DataAccessException.class);
+        assertBalance(SOURCE, "4000.00");
+        assertThat(count("comandos")).isZero();
+        assertThat(count("movimientos")).isZero();
+        assertThat(count("asientos")).isZero();
+    }
+
+    private List<TransferResult> concurrent(int requests, java.util.function.IntFunction<TransferCommand> commands)
+            throws Exception {
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(requests);
+        try {
+            List<Future<TransferResult>> futures = new ArrayList<>();
+            for (int i = 0; i < requests; i++) {
+                TransferCommand command = commands.apply(i);
+                Callable<TransferResult> task = () -> {
+                    start.await();
+                    return accounting.transfer(command);
+                };
+                futures.add(pool.submit(task));
+            }
+            start.countDown();
+            List<TransferResult> results = new ArrayList<>();
+            for (Future<TransferResult> future : futures) {
+                results.add(future.get(30, TimeUnit.SECONDS));
+            }
+            return results;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static TransferCommand command(UUID id, String amount) {
+        return new TransferCommand(id, OWNER, SOURCE, DESTINATION, amount, "PEN");
+    }
+
+    private void assertBalance(UUID account, String expected) {
+        assertThat(accounting.account(account).balance()).isEqualByComparingTo(expected);
+    }
+
+    private int count(String table) {
+        return jdbc.queryForObject("SELECT count(*) FROM " + table, Integer.class);
+    }
+}

@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Lenguaje y build | Java 21, Maven con Wrapper | Base reproducible para el proyecto |
 | Aplicaciones | Spring Boot 4.1.2, Spring Cloud 2025.1.4 | Gateway, configuración y resiliencia dentro del ecosistema Spring |
-| Datos transaccionales | PostgreSQL, Spring Data JPA y Flyway | Transacciones, bloqueo de filas, migraciones versionadas |
+| Datos transaccionales | PostgreSQL, Spring JDBC en Contabilidad y Flyway | SQL explícito para el bloqueo y los asientos; migraciones versionadas |
 | Seguridad | Spring Security Resource Server y Keycloak local | OIDC/JWT para usuarios y servicios |
 | Resiliencia | Resilience4j, timeouts y reintentos acotados | Fallos explícitos de llamadas síncronas |
 | Contrato HTTP | OpenAPI 3.0.3 | Contrato independiente de la implementación |
