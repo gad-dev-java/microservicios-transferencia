@@ -12,10 +12,11 @@ MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQ
 - [CI y registro de imágenes](docs/10-ci-y-registro.md)
 - [Colección Postman de demostración](contratos/coleccion-demo.postman_collection.json)
 - [Prueba de carga y resultados](docs/11-prueba-carga.md)
+- [Límite distribuido con Redis](docs/12-limite-distribuido.md)
 
-El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. Redis, MongoDB, Config Server y Kubernetes pertenecen a ampliaciones posteriores.
+El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. H5 añade Redis para límite distribuido; MongoDB, Config Server y Kubernetes son las siguientes ampliaciones.
 
-## Estado actual: H4, operación y demostración
+## Estado actual: H5, límite distribuido
 
 Contabilidad registra el movimiento con dos asientos atómicos e idempotencia por `transferId`. Riesgo guarda una decisión reproducible; Transferencias persiste el estado público, exige `Idempotency-Key` y concilia resultados inciertos. Los servicios validan JWT y los endpoints internos exigen identidad de servicio.
 
@@ -72,4 +73,4 @@ La ejecución local de TEC-19 pasó las 11 solicitudes y las 11 aserciones; `ver
 
 Zipkin está en `http://localhost:9411/zipkin/` y Prometheus en `http://localhost:9090`. Las solicitudes muestreadas aparecen con el mismo `traceId` en Gateway, Transferencias, Riesgo y Contabilidad. Compose muestrea el 10 % por defecto para mantener estable el Zipkin local bajo carga; `TRACING_SAMPLE_PROBABILITY=1.0` permite una demostración breve de trazas completas. Prometheus consulta `/actuator/prometheus` de los cuatro servicios internos; ese endpoint no se enruta por el gateway. Incluye métricas HTTP, decisiones de Riesgo, transferencias por estado, conciliación pendiente, entregas simuladas y atraso de outbox. Las sondas `/actuator/health/liveness` y `/actuator/health/readiness` están habilitadas en Compose.
 
-Las ramas HU-02 a HU-08 se apilan en orden. Usa la rama final del hito para reproducir su estado. Redis, MongoDB, Config Server y Kubernetes corresponden a etapas posteriores.
+Las ramas de historias y tareas se apilan en orden. Usa la rama final del hito para reproducir su estado. El Gateway usa Redis para limitar solicitudes por titular y ruta; [la prueba con dos instancias](docs/12-limite-distribuido.md) demuestra una cuota compartida. MongoDB, Config Server y Kubernetes siguen en H5.

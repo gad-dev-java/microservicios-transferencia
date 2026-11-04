@@ -51,6 +51,14 @@ services:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
 
+  redis:
+    image: redis:8.2.11-alpine3.22
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   kafka:
     image: apache/kafka:4.4.0
     hostname: kafka
@@ -192,6 +200,9 @@ services:
         APP_MODULE: gateway
     environment:
       SERVER_ADDRESS: 0.0.0.0
+      REDIS_HOST: redis
+      RATE_LIMIT_REPLENISH: ${RATE_LIMIT_REPLENISH:-100}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-100}
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       TRANSFERENCIAS_URL: http://transferencias:8081
@@ -209,6 +220,8 @@ services:
         condition: service_started
       notificaciones:
         condition: service_started
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
