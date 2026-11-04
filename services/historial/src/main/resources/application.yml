@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: historial
+  mongodb:
+    uri: ${MONGO_URI:mongodb://localhost:27017/historial}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: historial-v1
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: manual_immediate
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER:http://localhost:8180/realms/banco-demo}
+          jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/banco-demo/protocol/openid-connect/certs}
+          audiences: banco-api
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: 8085
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

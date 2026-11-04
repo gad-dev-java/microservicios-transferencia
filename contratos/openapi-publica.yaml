@@ -11,7 +11,39 @@ tags:
   - name: Cuentas
   - name: Transferencias
   - name: Notificaciones
+  - name: Historial
 paths:
+  /historial:
+    get:
+      tags: [Historial]
+      summary: Buscar transferencias confirmadas propias en una proyección asíncrona
+      operationId: buscarHistorial
+      parameters:
+        - name: desde
+          in: query
+          schema: {type: string, format: date-time}
+        - name: hasta
+          in: query
+          schema: {type: string, format: date-time}
+        - name: cuentaId
+          in: query
+          schema: {type: string, format: uuid}
+        - name: limite
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Transferencias confirmadas del titular, ordenadas de la más reciente a la más antigua. Puede haber atraso respecto a Contabilidad.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EntradaHistorial'
+        '400':
+          $ref: '#/components/responses/SolicitudInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
   /notificaciones:
     get:
       tags: [Notificaciones]
@@ -211,6 +243,17 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    EntradaHistorial:
+      type: object
+      required: [eventId, transferenciaId, cuentaOrigenId, cuentaDestinoId, importe, moneda, ocurridaEn]
+      properties:
+        eventId: {type: string, format: uuid}
+        transferenciaId: {type: string, format: uuid}
+        cuentaOrigenId: {type: string, format: uuid}
+        cuentaDestinoId: {type: string, format: uuid}
+        importe: {type: string, pattern: '^(0|[1-9][0-9]{0,16})\.[0-9]{2}$'}
+        moneda: {type: string, enum: [PEN]}
+        ocurridaEn: {type: string, format: date-time}
     Notificacion:
       type: object
       required: [eventId, transferenciaId, estado, creadaEn]

@@ -15,7 +15,9 @@ flowchart LR
     identidad --> gateway
 
     gateway --> transferencias[Servicio de transferencias]
-    gateway --> contabilidad[Servicio contable]
+    gateway --> notificaciones[Servicio de notificaciones]
+    gateway --> historial[Servicio de historial]
+    contabilidad[Servicio contable]
     transferencias --> riesgo[Servicio de riesgo]
     transferencias --> contabilidad
 
@@ -38,7 +40,7 @@ flowchart LR
     config --> historial
 ```
 
-El proveedor de identidad, Redis, Config Server y el servicio de historial se incorporan por etapas. El flujo principal de transferencias funciona sin Redis, Config Server ni MongoDB. Cada servicio valida los permisos que le corresponden; el gateway no es la única barrera de autorización.
+El proveedor de identidad, Redis e Historial ya están incorporados. Config Server corresponde a la siguiente etapa. El flujo principal de transferencias funciona sin Config Server ni MongoDB. Cada servicio valida los permisos que le corresponden; el gateway no es la única barrera de autorización.
 
 ## Responsabilidades y conexiones
 

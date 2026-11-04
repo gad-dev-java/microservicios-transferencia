@@ -59,6 +59,17 @@ services:
       timeout: 3s
       retries: 10
 
+  mongo:
+    image: mongo:8.0.32
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
   kafka:
     image: apache/kafka:4.4.0
     hostname: kafka
@@ -143,6 +154,27 @@ services:
       kafka:
         condition: service_healthy
 
+  historial:
+    build:
+      context: .
+      args:
+        APP_MODULE: historial
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      MONGO_URI: mongodb://mongo:27017/historial
+      KAFKA_BOOTSTRAP: kafka:19092
+      OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   riesgo:
     build:
       context: .
@@ -207,6 +239,7 @@ services:
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       TRANSFERENCIAS_URL: http://transferencias:8081
       NOTIFICACIONES_URL: http://notificaciones:8084
+      HISTORIAL_URL: http://historial:8085
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLE_PROBABILITY:-0.1}
       MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
@@ -220,6 +253,8 @@ services:
         condition: service_started
       notificaciones:
         condition: service_started
+      historial:
+        condition: service_started
       redis:
         condition: service_healthy
 
@@ -228,3 +263,4 @@ volumes:
   keycloak_data:
   kafka_data:
   prometheus_data:
+  mongo_data:

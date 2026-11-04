@@ -63,6 +63,8 @@ stages:
               module: contabilidad
             notificaciones:
               module: notificaciones
+            historial:
+              module: historial
         steps:
           - task: Docker@2
             displayName: Construir $(module)

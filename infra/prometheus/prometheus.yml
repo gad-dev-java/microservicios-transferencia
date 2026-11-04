@@ -10,3 +10,4 @@ scrape_configs:
           - transferencias:8081
           - riesgo:8083
           - notificaciones:8084
+          - historial:8085

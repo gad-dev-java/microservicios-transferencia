@@ -32,10 +32,10 @@ En una sola transacción se bloquean las dos filas de `cuentas` en orden ascende
 
 Las reglas de demostración son deterministas y versionadas. La misma solicitud de evaluación recibe la misma decisión.
 
-## Incorporaciones posteriores
+## Proyecciones y datos auxiliares
 
 - **Notificaciones:** tabla `entregas` con `event_id` único, `transfer_id`, `owner_subject`, hash del evento, estado `SIMULADA` y fecha. La inserción por `event_id` deduplica entregas repetidas.
-- **Historial:** colección MongoDB con `_id = transferId`, `ownerSubject`, importe, moneda, estado y fecha. Es una proyección reconstruible; no almacena el saldo oficial.
+- **Historial:** colección MongoDB `transferencias_confirmadas` con `_id = eventId`, `transferenciaId` único, `titularSubject`, cuentas, importe, moneda, `ocurridaEn` y hash del evento. Tiene un índice por `(titularSubject, ocurridaEn DESC)`. La inserción por `eventId` deduplica; la proyección es reconstruible desde Kafka mientras se conserven los eventos. Solo incluye confirmaciones y no almacena el saldo oficial.
 - **Redis:** límite de solicitudes del gateway; no almacena saldos ni claves de idempotencia como única fuente.
 
 ## Diagrama de entidades de Contabilidad

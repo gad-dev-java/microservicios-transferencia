@@ -35,6 +35,10 @@ spring:
               uri: ${NOTIFICACIONES_URL:http://localhost:8084}
               predicates:
                 - Path=/api/v1/notificaciones
+            - id: "${ROUTE_ID_PREFIX:}historial"
+              uri: ${HISTORIAL_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/historial
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}

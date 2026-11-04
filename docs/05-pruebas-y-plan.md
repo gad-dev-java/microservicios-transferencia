@@ -17,7 +17,8 @@ El detalle de historias de usuario y tareas por hito está en [07-backlog-de-imp
 | P-09 | Timeout después de que Contabilidad confirma | `PENDIENTE_CONCILIACION` temporal; termina `CONFIRMADA` sin otro débito |
 | P-10 | Otro usuario consulta una transferencia | `404` |
 | P-11 | Kafka caído tras confirmar, versión de portafolio | Evento pendiente en outbox y publicado luego |
-| P-12 | Evento duplicado | Una entrega lógica; cuando se añada Historial, una sola proyección |
+| P-12 | Evento duplicado | Una entrega lógica y una sola proyección de Historial por `eventId` |
+| P-13 | Historial detenido durante una confirmación | El saldo se actualiza una vez; la proyección aparece al recuperar el consumidor sin nuevo movimiento |
 
 Se prueban reglas puras con pruebas unitarias y persistencia/concurrencia con pruebas de integración usando PostgreSQL real mediante Testcontainers. En la etapa de eventos se incorpora Kafka de prueba. Referencia: [Spring Boot y Testcontainers](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html).
 
