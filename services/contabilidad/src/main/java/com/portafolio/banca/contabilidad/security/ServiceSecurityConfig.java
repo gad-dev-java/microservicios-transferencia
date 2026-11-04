@@ -16,7 +16,7 @@ public class ServiceSecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health/**")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/internal/v1/cuentas/**")
+                        .requestMatchers(HttpMethod.GET, "/internal/v1/cuentas", "/internal/v1/cuentas/**")
                         .access((authentication, context) ->
                                 new AuthorizationDecision(isTransferenciasService(authentication.get())))
                         .requestMatchers("/internal/v1/movimientos/**")

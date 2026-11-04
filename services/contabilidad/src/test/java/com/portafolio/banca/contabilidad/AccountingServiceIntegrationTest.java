@@ -83,6 +83,24 @@ class AccountingServiceIntegrationTest {
     }
 
     @Test
+    void listsOnlyAccountsOwnedByRequestedSubject() {
+        var mvc = MockMvcBuilders.webAppContextSetup(webContext)
+                .apply(springSecurity())
+                .build();
+        assertThat(accounting.accounts(OWNER))
+                .extracting(account -> account.ownerSubject())
+                .containsOnly(OWNER);
+        try {
+            mvc.perform(get("/internal/v1/cuentas").param("ownerSubject", OWNER).with(serviceJwt()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].accountId").value(SOURCE.toString()))
+                    .andExpect(jsonPath("$[1]").doesNotExist());
+        } catch (Exception exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    @Test
     void confirmsWithExactlyTwoBalancedEntries() {
         UUID transferId = UUID.randomUUID();
         TransferResult result = accounting.transfer(command(transferId, "100.00"));

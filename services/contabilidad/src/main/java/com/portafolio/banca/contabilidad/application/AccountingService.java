@@ -4,6 +4,7 @@ import com.portafolio.banca.contabilidad.domain.Account;
 import com.portafolio.banca.contabilidad.domain.TransferInstruction;
 import com.portafolio.banca.contabilidad.domain.TransferRules;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -27,6 +28,14 @@ public class AccountingService {
     @Transactional(readOnly = true)
     public Account account(UUID id) {
         return store.account(id).orElseThrow(() -> new NotFoundException("Cuenta inexistente"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Account> accounts(String ownerSubject) {
+        if (ownerSubject == null || ownerSubject.isBlank()) {
+            throw new IllegalArgumentException("Titular inválido");
+        }
+        return store.accounts(ownerSubject);
     }
 
     @Transactional(readOnly = true)

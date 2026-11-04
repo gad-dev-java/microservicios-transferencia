@@ -2,11 +2,14 @@ package com.portafolio.banca.contabilidad.application;
 
 import com.portafolio.banca.contabilidad.domain.Account;
 import com.portafolio.banca.contabilidad.domain.TransferInstruction;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface AccountingStore {
     Optional<Account> account(UUID id);
+
+    List<Account> accounts(String ownerSubject);
 
     Optional<Account> lockAccount(UUID id);
 

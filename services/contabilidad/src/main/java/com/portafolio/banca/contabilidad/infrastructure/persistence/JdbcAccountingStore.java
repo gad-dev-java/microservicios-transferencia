@@ -29,6 +29,14 @@ public class JdbcAccountingStore implements AccountingStore {
     }
 
     @Override
+    public List<Account> accounts(String ownerSubject) {
+        return jdbc.query("""
+                SELECT id, owner_subject, currency, status, balance
+                FROM cuentas WHERE owner_subject = ? ORDER BY id
+                """, (rs, row) -> mapAccount(rs), ownerSubject);
+    }
+
+    @Override
     public Optional<Account> lockAccount(UUID id) {
         List<Account> rows = jdbc.query("""
                 SELECT id, owner_subject, currency, status, balance FROM cuentas WHERE id = ? FOR UPDATE

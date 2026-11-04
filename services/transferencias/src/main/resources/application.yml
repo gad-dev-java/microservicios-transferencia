@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: transferencias
+  http:
+    clients:
+      connect-timeout: 2s
+      read-timeout: 2s
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER:http://localhost:8180/realms/banco-demo}
+          jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/banco-demo/protocol/openid-connect/certs}
+          audiences: banco-api
+
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: 8081
+
+clients:
+  contabilidad-url: ${CONTABILIDAD_URL:http://localhost:8082}
+  token-url: ${OIDC_TOKEN_URL:http://localhost:8180/realms/banco-demo/protocol/openid-connect/token}
+  service-client-secret: ${SERVICE_CLIENT_SECRET:local-transferencias-service-only}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
