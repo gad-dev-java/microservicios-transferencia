@@ -1,0 +1,32 @@
+trigger:
+  - main
+
+pr:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: JavaToolInstaller@0
+    displayName: Usar JDK 21
+    inputs:
+      versionSpec: '21'
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+
+  - script: |
+      chmod +x ./mvnw
+      ./mvnw -B -ntp verify
+    displayName: Compilar y verificar módulos
+
+  - task: PublishTestResults@2
+    displayName: Publicar resultados de pruebas
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
+      failTaskOnMissingResultsFile: false
+
+  - script: docker compose config --quiet
+    displayName: Validar Docker Compose

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:proyecto-microservicios:transferencia-confirmada:v1",
+  "title": "TransferenciaConfirmada v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "transferId",
+    "actorSubject",
+    "sourceAccountId",
+    "destinationAccountId",
+    "amount",
+    "currency",
+    "occurredAt"
+  ],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "TransferenciaConfirmada" },
+    "schemaVersion": { "const": 1 },
+    "transferId": { "type": "string", "format": "uuid" },
+    "actorSubject": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "sourceAccountId": { "type": "string", "format": "uuid" },
+    "destinationAccountId": { "type": "string", "format": "uuid" },
+    "amount": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,16})\\.[0-9]{2}$" },
+    "currency": { "const": "PEN" },
+    "occurredAt": { "type": "string", "format": "date-time" }
+  }
+}
