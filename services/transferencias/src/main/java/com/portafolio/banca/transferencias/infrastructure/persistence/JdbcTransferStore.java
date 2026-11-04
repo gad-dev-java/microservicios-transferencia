@@ -2,6 +2,7 @@ package com.portafolio.banca.transferencias.infrastructure.persistence;
 
 import com.portafolio.banca.transferencias.application.TransferStore;
 import com.portafolio.banca.transferencias.domain.Transfer;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -18,8 +19,9 @@ public class JdbcTransferStore implements TransferStore {
     private static final RowMapper<Transfer> MAPPER = (rs, row) -> from(rs);
     private final JdbcTemplate jdbc;
 
-    public JdbcTransferStore(JdbcTemplate jdbc) {
+    public JdbcTransferStore(JdbcTemplate jdbc, MeterRegistry meters) {
         this.jdbc = jdbc;
+        meters.gauge("transferencias.conciliacion.pendientes", this, store -> store.pending());
     }
 
     @Override
@@ -110,6 +112,13 @@ public class JdbcTransferStore implements TransferStore {
                   last_error_code = ?, updated_at = now()
                 WHERE id = ? AND state = ?
                 """, errorCode, id, previousState);
+    }
+
+    private double pending() {
+        Long count = jdbc.queryForObject(
+                "SELECT count(*) FROM transferencias WHERE state IN ('CONTABILIZANDO','PENDIENTE_CONCILIACION')",
+                Long.class);
+        return count == null ? 0 : count;
     }
 
     private static Transfer from(ResultSet rs) throws SQLException {

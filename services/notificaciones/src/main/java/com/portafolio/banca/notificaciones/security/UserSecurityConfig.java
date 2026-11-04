@@ -13,7 +13,7 @@ public class UserSecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health/**")
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health/**", "/actuator/prometheus")
                         .permitAll()
                         .requestMatchers("/api/v1/notificaciones")
                         .access((authentication, context) ->

@@ -13,7 +13,7 @@ public class ServiceSecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health/**")
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health/**", "/actuator/prometheus")
                         .permitAll()
                         .requestMatchers("/internal/v1/evaluaciones")
                         .access((authentication, context) ->

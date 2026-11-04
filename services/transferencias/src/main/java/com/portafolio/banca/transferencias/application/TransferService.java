@@ -1,6 +1,7 @@
 package com.portafolio.banca.transferencias.application;
 
 import com.portafolio.banca.transferencias.domain.Transfer;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -22,12 +23,15 @@ public class TransferService {
     private final AccountsService accounts;
     private final LedgerPort ledger;
     private final RiskPort risk;
+    private final MeterRegistry meters;
 
-    public TransferService(TransferStore store, AccountsService accounts, LedgerPort ledger, RiskPort risk) {
+    public TransferService(
+            TransferStore store, AccountsService accounts, LedgerPort ledger, RiskPort risk, MeterRegistry meters) {
         this.store = store;
         this.accounts = accounts;
         this.ledger = ledger;
         this.risk = risk;
+        this.meters = meters;
     }
 
     public Creation create(String owner, UUID key, UUID source, UUID destination, String amount, String currency) {
@@ -61,12 +65,12 @@ public class TransferService {
             RiskPort.RiskDecision decision = risk.evaluate(candidate);
             if (!"APROBADA".equals(decision.decision())) {
                 store.state(id, "EVALUANDO", "RECHAZADA", "RISK_REJECTED");
-                return new Creation(store.byId(id).orElseThrow(), true);
+                return created(id);
             }
         } catch (RuntimeException exception) {
             log.warn("Riesgo no disponible transferId={}", id);
             store.state(id, "EVALUANDO", "RECHAZADA", "RIESGO_NO_DISPONIBLE");
-            return new Creation(store.byId(id).orElseThrow(), true);
+            return created(id);
         }
         store.state(id, "EVALUANDO", "CONTABILIZANDO", null);
         try {
@@ -76,7 +80,7 @@ public class TransferService {
             log.warn("Resultado contable incierto transferId={}", id);
             store.state(id, "CONTABILIZANDO", "PENDIENTE_CONCILIACION", null);
         }
-        return new Creation(store.byId(id).orElseThrow(), true);
+        return created(id);
     }
 
     public Transfer own(String owner, UUID id) {
@@ -130,6 +134,13 @@ public class TransferService {
             throw new IdempotencyConflictException();
         }
         return new Creation(transfer, false);
+    }
+
+    private Creation created(UUID id) {
+        Transfer transfer = store.byId(id).orElseThrow();
+        meters.counter("transferencias.creadas", "estado", transfer.state()).increment();
+        log.info("Transferencia registrada transferId={} estado={}", id, transfer.state());
+        return new Creation(transfer, true);
     }
 
     private BigDecimal validate(UUID source, UUID destination, String amount, String currency) {

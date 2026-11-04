@@ -26,6 +26,7 @@ public class OutboxRelay {
         this.kafka = kafka;
         this.meters = meters;
         meters.gauge("contabilidad.outbox.pending", this, relay -> relay.pending());
+        meters.gauge("contabilidad.outbox.oldest_age_seconds", this, relay -> relay.oldestAgeSeconds());
     }
 
     @Scheduled(fixedDelayString = "${outbox.delay-ms:1000}")
@@ -68,6 +69,13 @@ public class OutboxRelay {
     private double pending() {
         Long count = jdbc.queryForObject("SELECT count(*) FROM outbox WHERE published_at IS NULL", Long.class);
         return count == null ? 0 : count;
+    }
+
+    private double oldestAgeSeconds() {
+        Double age = jdbc.queryForObject(
+                "SELECT EXTRACT(EPOCH FROM (now() - min(created_at))) FROM outbox WHERE published_at IS NULL",
+                Double.class);
+        return age == null ? 0 : age;
     }
 
     private record Event(UUID id, UUID transferId, String payload, int attempts) {}

@@ -10,7 +10,7 @@ MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQ
 - [Contrato OpenAPI público](contratos/openapi-publica.yaml)
 - [Guía para agentes y asistentes de código](AGENTS.md)
 
-El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. Redis, MongoDB, Config Server y Kubernetes pertenecen a ampliaciones posteriores.
+El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. Redis, MongoDB, Config Server y Kubernetes pertenecen a ampliaciones posteriores.
 
 ## Estado actual: H3, eventos y notificaciones
 
@@ -47,5 +47,9 @@ Invoke-RestMethod 'http://localhost:8080/api/v1/transferencias' -Method Post -He
 La misma clave y el mismo cuerpo devuelven `200` con el mismo identificador; un cuerpo distinto devuelve `409`. Una respuesta `202` indica que la conciliación continúa y se puede consultar el estado con `GET /api/v1/transferencias/{id}`. `GET /api/v1/notificaciones` muestra avisos simulados del titular autenticado. Solo las confirmaciones escriben `TransferenciaConfirmada` v1 en outbox dentro de la transacción contable; el relay lo publica en Kafka y Notificaciones deduplica por `eventId`.
 
 El script H2 comprueba P-01 a P-08 y P-10 por el gateway. P-09 se prueba con Testcontainers. Para P-11, detén Kafka con `docker compose stop kafka`, confirma una transferencia y verifica una fila de `outbox` con `published_at IS NULL` en la base `contabilidad`; al ejecutar `docker compose start kafka`, el aviso aparece en `GET /api/v1/notificaciones`. Para P-12, la prueba `NotificationIntegrationTest` repite el mismo `eventId` y verifica una sola entrega. También se comprobó reenviando el evento por Kafka en Compose.
+
+## Observabilidad local
+
+Zipkin está en `http://localhost:9411/zipkin/` y Prometheus en `http://localhost:9090`. Una solicitud de transferencia aparece con el mismo `traceId` en Gateway, Transferencias, Riesgo y Contabilidad. Prometheus consulta `/actuator/prometheus` de los cuatro servicios internos; ese endpoint no se enruta por el gateway. Incluye métricas HTTP, decisiones de Riesgo, transferencias por estado, conciliación pendiente, entregas simuladas y atraso de outbox. Las sondas `/actuator/health/liveness` y `/actuator/health/readiness` están habilitadas en Compose.
 
 Las ramas HU-02 a HU-08 se apilan en orden. Usa la rama final del hito para reproducir su estado. Redis, MongoDB, Config Server y Kubernetes corresponden a etapas posteriores.

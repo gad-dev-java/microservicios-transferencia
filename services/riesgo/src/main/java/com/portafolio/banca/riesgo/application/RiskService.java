@@ -2,6 +2,7 @@ package com.portafolio.banca.riesgo.application;
 
 import com.portafolio.banca.riesgo.api.EvaluationRequest;
 import com.portafolio.banca.riesgo.api.EvaluationResponse;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -14,9 +15,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class RiskService {
     private final JdbcTemplate jdbc;
+    private final MeterRegistry meters;
 
-    public RiskService(JdbcTemplate jdbc) {
+    public RiskService(JdbcTemplate jdbc, MeterRegistry meters) {
         this.jdbc = jdbc;
+        this.meters = meters;
     }
 
     public EvaluationResponse evaluate(EvaluationRequest request) {
@@ -26,7 +29,7 @@ public class RiskService {
         boolean approved = amount.compareTo(new BigDecimal("3000.00")) <= 0;
         String decision = approved ? "APROBADA" : "RECHAZADA";
         String reason = approved ? "NONE" : "RISK_REJECTED";
-        jdbc.update("""
+        int inserted = jdbc.update("""
                 INSERT INTO evaluaciones (transfer_id, request_hash, decision, reason_code, rule_version)
                 VALUES (?, ?, ?, ?, 'demo-v1') ON CONFLICT (transfer_id) DO NOTHING
                 """, request.transferId(), hash, decision, reason);
@@ -39,6 +42,10 @@ public class RiskService {
                 request.transferId());
         if (saved == null || !hash.equals(saved.hash())) {
             throw new DuplicateKeyException("transferId usado con datos diferentes");
+        }
+        if (inserted == 1) {
+            meters.counter("riesgo.evaluaciones", "decision", saved.response().decision())
+                    .increment();
         }
         return saved.response();
     }

@@ -3,7 +3,9 @@ package com.portafolio.banca.transferencias.api;
 import com.portafolio.banca.transferencias.application.IdempotencyConflictException;
 import com.portafolio.banca.transferencias.application.InvalidTransferException;
 import com.portafolio.banca.transferencias.application.ResourceNotFoundException;
+import io.micrometer.tracing.Tracer;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,6 +13,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class PublicErrorHandler {
+    private final ObjectProvider<Tracer> tracers;
+
+    public PublicErrorHandler(ObjectProvider<Tracer> tracers) {
+        this.tracers = tracers;
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<PublicError> notFound(ResourceNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -30,6 +38,10 @@ public class PublicErrorHandler {
     }
 
     private String traceId() {
+        Tracer tracer = tracers.getIfAvailable();
+        if (tracer != null && tracer.currentSpan() != null) {
+            return tracer.currentSpan().context().traceId();
+        }
         return UUID.randomUUID().toString().replace("-", "");
     }
 
