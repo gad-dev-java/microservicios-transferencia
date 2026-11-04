@@ -11,17 +11,17 @@ Esta guía adapta el enfoque de [Agents.md para Java y Spring Boot](https://jose
 - Contabilidad usa Spring JDBC y SQL explícito. No introducir JPA, Lombok, MapStruct, Kafka, Redis o Kubernetes por inercia; cada incorporación debe responder al backlog y a una decisión concreta.
 - La API pública aún no está implementada. Los endpoints actuales de Contabilidad son internos y se limitan a `127.0.0.1` hasta añadir identidad de servicio en H2.
 
-## Arquitectura en capas de Contabilidad
+## Arquitectura de Contabilidad: hexagonal pragmática
 
 ```text
 services/contabilidad/src/main/java/com/portafolio/banca/contabilidad/
-├── api/                         HTTP, DTO y errores
+├── api/                         adaptador de entrada HTTP, DTO y errores
 ├── application/                 casos de uso, transacciones y puerto AccountingStore
 ├── domain/                      cuentas, instrucciones y reglas puras
-└── infrastructure/persistence/  SQL y adaptación JDBC del puerto
+└── infrastructure/persistence/  adaptador de salida JDBC
 ```
 
-`api → application → domain`; `infrastructure` implementa el puerto de `application`. `domain` no importa Spring, HTTP ni JDBC. El controlador no consulta la base, y `application` no importa la implementación JDBC. Lee [las reglas de capas](docs/agent-guides/java-and-architecture.md) antes de crear clases.
+El puerto `AccountingStore` invierte la dependencia entre el caso de uso y la base de datos; `JdbcAccountingStore` lo implementa. Los paquetes muestran las capas, mientras que la relación puerto/adaptador da la forma hexagonal. Es pragmática porque `application` usa Spring para transacciones y Micrometer para métricas. `domain` no importa Spring, HTTP ni JDBC. Lee [los límites de dependencias](docs/agent-guides/java-and-architecture.md) antes de crear clases.
 
 ## Qué leer según el cambio
 

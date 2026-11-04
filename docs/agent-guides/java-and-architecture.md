@@ -12,14 +12,14 @@
 
 - El POM raíz agrega módulos; cada servicio declara solo sus dependencias y tiene su propia configuración, migraciones y pruebas.
 - Las relaciones entre servicios se expresan por contratos HTTP o eventos, nunca por dependencias a clases de otro servicio.
-- Dentro de Contabilidad, usar estas cuatro capas:
+- Contabilidad usa una arquitectura hexagonal pragmática organizada en cuatro paquetes. `api` es el adaptador de entrada; `infrastructure/persistence` es el adaptador de salida. `application` define el puerto que necesita para persistir, por lo que no conoce la clase JDBC. El dominio permanece libre de frameworks. El uso de Spring para transacciones y Micrometer en `application` es una concesión deliberada del proyecto, no una separación hexagonal estricta.
 
 | Paquete | Responsabilidad | Dependencias permitidas |
 | --- | --- | --- |
-| `api` | Rutas, DTO de entrada/salida, traducción de errores HTTP | `application`, `domain` para convertir DTO |
+| `api` | Adaptador HTTP, DTO de entrada/salida, traducción de errores | `application`, `domain` para convertir DTO |
 | `application` | Caso de uso, límite transaccional, idempotencia y puerto `AccountingStore` | `domain`, Spring para transacción y métricas |
 | `domain` | Cuenta, instrucción validada y reglas de rechazo | Biblioteca estándar de Java |
-| `infrastructure/persistence` | Implementación JDBC del puerto, SQL y mapeo de filas | `application`, `domain`, Spring JDBC |
+| `infrastructure/persistence` | Adaptador JDBC del puerto, SQL y mapeo de filas | `application`, `domain`, Spring JDBC |
 
 El flujo es `HTTP → api → application → AccountingStore ← infrastructure/persistence`; `application → domain` aplica las reglas. No importar `JdbcAccountingStore` en `application`, ni `JdbcTemplate` en `domain` o `api`. Las respuestas HTTP se construyen en `api`, no se devuelve una fila SQL al cliente.
 - En Contabilidad, Spring JDBC permite ver claramente `INSERT ... ON CONFLICT`, `SELECT ... FOR UPDATE` y el orden de las escrituras. Mantener SQL parametrizado; no concatenar valores de entrada en consultas.
