@@ -8,5 +8,4 @@ public record TransferCommand(
         UUID sourceAccountId,
         UUID destinationAccountId,
         String amount,
-        String currency) {
-}
+        String currency) {}

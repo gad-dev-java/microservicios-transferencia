@@ -1,5 +1,6 @@
 package com.portafolio.banca.contabilidad;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -10,8 +11,6 @@ import java.sql.SQLException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-
-import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -71,10 +70,14 @@ public class AccountingService {
             return result(command.transferId());
         }
 
-        UUID first = command.sourceAccountId().toString().compareTo(command.destinationAccountId().toString()) < 0
-                ? command.sourceAccountId() : command.destinationAccountId();
-        UUID second = first.equals(command.sourceAccountId())
-                ? command.destinationAccountId() : command.sourceAccountId();
+        UUID first = command.sourceAccountId()
+                                .toString()
+                                .compareTo(command.destinationAccountId().toString())
+                        < 0
+                ? command.sourceAccountId()
+                : command.destinationAccountId();
+        UUID second =
+                first.equals(command.sourceAccountId()) ? command.destinationAccountId() : command.sourceAccountId();
         AccountView firstAccount = lockedAccount(first);
         AccountView secondAccount = lockedAccount(second);
         AccountView source = first.equals(command.sourceAccountId()) ? firstAccount : secondAccount;
@@ -99,12 +102,23 @@ public class AccountingService {
         UUID movementId = UUID.randomUUID();
         jdbc.update("UPDATE cuentas SET balance = balance - ? WHERE id = ?", amount, source.accountId());
         jdbc.update("UPDATE cuentas SET balance = balance + ? WHERE id = ?", amount, destination.accountId());
-        jdbc.update("INSERT INTO movimientos (id, transfer_id, actor_subject) VALUES (?, ?, ?)",
-                movementId, command.transferId(), command.actorSubject());
-        jdbc.update("INSERT INTO asientos (id, movement_id, account_id, delta) VALUES (?, ?, ?, ?)",
-                UUID.randomUUID(), movementId, source.accountId(), amount.negate());
-        jdbc.update("INSERT INTO asientos (id, movement_id, account_id, delta) VALUES (?, ?, ?, ?)",
-                UUID.randomUUID(), movementId, destination.accountId(), amount);
+        jdbc.update(
+                "INSERT INTO movimientos (id, transfer_id, actor_subject) VALUES (?, ?, ?)",
+                movementId,
+                command.transferId(),
+                command.actorSubject());
+        jdbc.update(
+                "INSERT INTO asientos (id, movement_id, account_id, delta) VALUES (?, ?, ?, ?)",
+                UUID.randomUUID(),
+                movementId,
+                source.accountId(),
+                amount.negate());
+        jdbc.update(
+                "INSERT INTO asientos (id, movement_id, account_id, delta) VALUES (?, ?, ?, ?)",
+                UUID.randomUUID(),
+                movementId,
+                destination.accountId(),
+                amount);
         jdbc.update("""
                 UPDATE comandos SET outcome = 'CONFIRMADA', movement_id = ?, updated_at = now()
                 WHERE transfer_id = ?
@@ -133,17 +147,23 @@ public class AccountingService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                meters.counter("contabilidad.transferencias", "outcome", outcome, "reason", reason).increment();
+                meters.counter("contabilidad.transferencias", "outcome", outcome, "reason", reason)
+                        .increment();
                 log.info("Resultado contable transferId={} outcome={} reason={}", transferId, outcome, reason);
             }
         });
     }
 
     private static BigDecimal validate(TransferCommand command) {
-        if (command == null || command.transferId() == null || command.sourceAccountId() == null
-                || command.destinationAccountId() == null || command.actorSubject() == null
-                || command.actorSubject().isBlank() || command.actorSubject().length() > 128
-                || command.amount() == null || !command.amount().matches("[0-9]+\\.[0-9]{2}")
+        if (command == null
+                || command.transferId() == null
+                || command.sourceAccountId() == null
+                || command.destinationAccountId() == null
+                || command.actorSubject() == null
+                || command.actorSubject().isBlank()
+                || command.actorSubject().length() > 128
+                || command.amount() == null
+                || !command.amount().matches("[0-9]+\\.[0-9]{2}")
                 || !"PEN".equals(command.currency())
                 || command.sourceAccountId().equals(command.destinationAccountId())) {
             throw new IllegalArgumentException("Comando de transferencia inválido");
@@ -158,10 +178,15 @@ public class AccountingService {
     private static String hash(TransferCommand command, BigDecimal amount) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            for (String value : List.of(command.actorSubject(), command.sourceAccountId().toString(),
-                    command.destinationAccountId().toString(), amount.toPlainString(), command.currency())) {
+            for (String value : List.of(
+                    command.actorSubject(),
+                    command.sourceAccountId().toString(),
+                    command.destinationAccountId().toString(),
+                    amount.toPlainString(),
+                    command.currency())) {
                 byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-                digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+                digest.update(
+                        ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
                 digest.update(bytes);
             }
             return HexFormat.of().formatHex(digest.digest());
@@ -171,12 +196,19 @@ public class AccountingService {
     }
 
     private static AccountView mapAccount(ResultSet rs) throws SQLException {
-        return new AccountView(rs.getObject("id", UUID.class), rs.getString("owner_subject"),
-                rs.getString("currency"), rs.getString("status"), rs.getBigDecimal("balance"));
+        return new AccountView(
+                rs.getObject("id", UUID.class),
+                rs.getString("owner_subject"),
+                rs.getString("currency"),
+                rs.getString("status"),
+                rs.getBigDecimal("balance"));
     }
 
     private static TransferResult mapResult(ResultSet rs) throws SQLException {
-        return new TransferResult(rs.getObject("transfer_id", UUID.class), rs.getString("outcome"),
-                rs.getString("reason_code"), rs.getObject("movement_id", UUID.class));
+        return new TransferResult(
+                rs.getObject("transfer_id", UUID.class),
+                rs.getString("outcome"),
+                rs.getString("reason_code"),
+                rs.getObject("movement_id", UUID.class));
     }
 }

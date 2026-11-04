@@ -14,6 +14,7 @@ Esta carpeta fija las decisiones necesarias para comenzar el simulador de transf
 | 8 | Stack y repositorio | [06-stack-y-repositorio.md](06-stack-y-repositorio.md) | Herramientas y estructura inicial |
 | 9 | Backlog de implementación | [07-backlog-de-implementacion.md](07-backlog-de-implementacion.md) | Historias, tareas, dependencias e hitos |
 | 10 | Flujo de Git | [08-flujo-git.md](08-flujo-git.md) | Ramas por historia y pull requests hacia `main` |
+| 11 | Guía para agentes | [AGENTS.md](../AGENTS.md), [guías por tema](agent-guides) | Contexto, reglas de código y verificación acordes al stack real |
 
 ## Límites del compromiso
 

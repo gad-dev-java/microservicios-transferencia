@@ -2,6 +2,11 @@ package com.portafolio.banca.contabilidad;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -13,15 +18,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.dao.DataAccessException;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -48,6 +55,9 @@ class AccountingServiceIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    WebApplicationContext webContext;
 
     @BeforeEach
     void seed() {
@@ -77,8 +87,10 @@ class AccountingServiceIntegrationTest {
         assertBalance(DESTINATION, "300.00");
         assertThat(count("movimientos")).isEqualTo(1);
         assertThat(count("asientos")).isEqualTo(2);
-        List<BigDecimal> deltas = jdbc.query("SELECT delta FROM asientos WHERE movement_id = ? ORDER BY delta",
-                (rs, row) -> rs.getBigDecimal(1), result.movementId());
+        List<BigDecimal> deltas = jdbc.query(
+                "SELECT delta FROM asientos WHERE movement_id = ? ORDER BY delta",
+                (rs, row) -> rs.getBigDecimal(1),
+                result.movementId());
         assertThat(deltas).containsExactly(new BigDecimal("-100.00"), new BigDecimal("100.00"));
     }
 
@@ -125,8 +137,11 @@ class AccountingServiceIntegrationTest {
         UUID id = UUID.randomUUID();
         List<TransferResult> results = concurrent(10, index -> command(id, "100.00"));
 
-        assertThat(results).hasSize(10).allMatch(result -> "CONFIRMADA".equals(result.outcome()))
-                .allMatch(result -> result.movementId().equals(results.getFirst().movementId()));
+        assertThat(results)
+                .hasSize(10)
+                .allMatch(result -> "CONFIRMADA".equals(result.outcome()))
+                .allMatch(
+                        result -> result.movementId().equals(results.getFirst().movementId()));
         assertThat(count("movimientos")).isEqualTo(1);
         assertThat(count("asientos")).isEqualTo(2);
         assertBalance(SOURCE, "3900.00");
@@ -136,8 +151,14 @@ class AccountingServiceIntegrationTest {
     void concurrentTransfersCannotOverdrawSource() throws Exception {
         List<TransferResult> results = concurrent(2, index -> command(UUID.randomUUID(), "2500.00"));
 
-        assertThat(results.stream().filter(result -> "CONFIRMADA".equals(result.outcome())).count()).isEqualTo(1);
-        assertThat(results.stream().filter(result -> "RECHAZADA".equals(result.outcome())).count()).isEqualTo(1);
+        assertThat(results.stream()
+                        .filter(result -> "CONFIRMADA".equals(result.outcome()))
+                        .count())
+                .isEqualTo(1);
+        assertThat(results.stream()
+                        .filter(result -> "RECHAZADA".equals(result.outcome()))
+                        .count())
+                .isEqualTo(1);
         assertBalance(SOURCE, "1500.00");
         assertBalance(DESTINATION, "2700.00");
         assertThat(count("movimientos")).isEqualTo(1);
@@ -154,6 +175,32 @@ class AccountingServiceIntegrationTest {
         assertThat(count("comandos")).isZero();
         assertThat(count("movimientos")).isZero();
         assertThat(count("asientos")).isZero();
+    }
+
+    @Test
+    void httpErrorsUseProblemDetails() throws Exception {
+        var mvc = MockMvcBuilders.webAppContextSetup(webContext).build();
+        var id = UUID.randomUUID();
+        var body = """
+                {"transferId":"%s","actorSubject":"%s","sourceAccountId":"%s",
+                 "destinationAccountId":"%s","amount":"100.00","currency":"PEN"}
+                """.formatted(id, OWNER, SOURCE, DESTINATION);
+        var changedBody = body.replace("100.00", "101.00");
+
+        mvc.perform(get("/internal/v1/movimientos/transferencia/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        mvc.perform(post("/internal/v1/movimientos/transferencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+        mvc.perform(post("/internal/v1/movimientos/transferencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(changedBody))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
     }
 
     private List<TransferResult> concurrent(int requests, java.util.function.IntFunction<TransferCommand> commands)
