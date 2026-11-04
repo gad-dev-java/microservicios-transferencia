@@ -21,6 +21,10 @@ spring:
               uri: ${TRANSFERENCIAS_URL:http://localhost:8081}
               predicates:
                 - Path=/api/v1/transferencias,/api/v1/transferencias/**
+            - id: notificaciones
+              uri: ${NOTIFICACIONES_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/notificaciones
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}

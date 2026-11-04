@@ -22,6 +22,7 @@
         <module>services/gateway</module>
         <module>services/transferencias</module>
         <module>services/riesgo</module>
+        <module>services/notificaciones</module>
     </modules>
 
     <properties>

@@ -68,6 +68,7 @@ class AccountingServiceIntegrationTest {
 
     @BeforeEach
     void seed() {
+        jdbc.update("DELETE FROM outbox");
         jdbc.update("DELETE FROM asientos");
         jdbc.update("DELETE FROM comandos");
         jdbc.update("DELETE FROM movimientos");
@@ -112,6 +113,10 @@ class AccountingServiceIntegrationTest {
         assertBalance(DESTINATION, "300.00");
         assertThat(count("movimientos")).isEqualTo(1);
         assertThat(count("asientos")).isEqualTo(2);
+        assertThat(count("outbox")).isEqualTo(1);
+        String event =
+                jdbc.queryForObject("SELECT payload::text FROM outbox WHERE transfer_id = ?", String.class, transferId);
+        assertThat(event).contains("TransferenciaConfirmada", transferId.toString(), OWNER, "100.00");
         List<BigDecimal> deltas = jdbc.query(
                 "SELECT delta FROM asientos WHERE movement_id = ? ORDER BY delta",
                 (rs, row) -> rs.getBigDecimal(1),
@@ -123,6 +128,7 @@ class AccountingServiceIntegrationTest {
     void rejectsInsufficientFundsAndRemembersRejection() {
         UUID id = UUID.randomUUID();
         TransferResult result = accounting.transfer(command(id, "4000.01"));
+        assertThat(count("outbox")).isZero();
 
         assertThat(result.outcome()).isEqualTo("RECHAZADA");
         assertThat(result.reasonCode()).isEqualTo("INSUFFICIENT_FUNDS");

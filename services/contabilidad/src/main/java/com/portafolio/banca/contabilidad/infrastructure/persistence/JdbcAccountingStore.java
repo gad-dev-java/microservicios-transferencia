@@ -107,6 +107,26 @@ public class JdbcAccountingStore implements AccountingStore {
                 UPDATE comandos SET outcome = 'CONFIRMADA', movement_id = ?, updated_at = now()
                 WHERE transfer_id = ?
                 """, movementId, instruction.transferId());
+        UUID eventId = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO outbox (event_id, transfer_id, event_type, schema_version, payload)
+                VALUES (?, ?, 'TransferenciaConfirmada', 1,
+                  jsonb_build_object(
+                    'eventId', ?::text, 'eventType', 'TransferenciaConfirmada', 'schemaVersion', 1,
+                    'transferId', ?::text, 'actorSubject', ?, 'sourceAccountId', ?::text,
+                    'destinationAccountId', ?::text, 'amount', ?, 'currency', ?,
+                    'occurredAt', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))
+                """,
+                eventId,
+                instruction.transferId(),
+                eventId,
+                instruction.transferId(),
+                instruction.actorSubject(),
+                instruction.sourceAccountId(),
+                instruction.destinationAccountId(),
+                instruction.amount().toPlainString(),
+                instruction.currency());
     }
 
     private Account mapAccount(ResultSet rs) throws SQLException {

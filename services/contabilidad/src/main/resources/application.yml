@@ -1,6 +1,17 @@
 spring:
   application:
     name: contabilidad
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 2000
+        request.timeout.ms: 3000
+        delivery.timeout.ms: 5000
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/contabilidad}
     username: ${DB_USER:banco_app}
@@ -12,6 +23,9 @@ spring:
           issuer-uri: ${OIDC_ISSUER:http://localhost:8180/realms/banco-demo}
           jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/banco-demo/protocol/openid-connect/certs}
           audiences: banco-api
+
+outbox:
+  enabled: ${OUTBOX_ENABLED:false}
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}

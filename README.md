@@ -10,9 +10,9 @@ MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQ
 - [Contrato OpenAPI público](contratos/openapi-publica.yaml)
 - [Guía para agentes y asistentes de código](AGENTS.md)
 
-El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. Kafka, Notificaciones y observabilidad completan la siguiente entrega; Redis, MongoDB, Config Server y Kubernetes son ampliaciones posteriores.
+El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. Redis, MongoDB, Config Server y Kubernetes pertenecen a ampliaciones posteriores.
 
-## Estado actual: H2, MVP seguro
+## Estado actual: H3, eventos y notificaciones
 
 Contabilidad registra el movimiento con dos asientos atómicos e idempotencia por `transferId`. Riesgo guarda una decisión reproducible; Transferencias persiste el estado público, exige `Idempotency-Key` y concilia resultados inciertos. Los servicios validan JWT y los endpoints internos exigen identidad de servicio.
 
@@ -44,6 +44,8 @@ Invoke-RestMethod 'http://localhost:8080/api/v1/cuentas' -Headers @{Authorizatio
 Invoke-RestMethod 'http://localhost:8080/api/v1/transferencias' -Method Post -Headers $headers -ContentType 'application/json' -Body $body
 ```
 
-La misma clave y el mismo cuerpo devuelven `200` con el mismo identificador; un cuerpo distinto devuelve `409`. Una respuesta `202` indica que la conciliación continúa y se puede consultar el estado con `GET /api/v1/transferencias/{id}`. El script comprueba P-01 a P-08 y P-10 por el gateway; detiene y vuelve a iniciar Riesgo durante P-08. P-09 se prueba con Testcontainers en `TransferApiIntegrationTest`, simulando la pérdida de la respuesta tras el asiento. El script utiliza saldos de demostración y P-07 requiere saldo suficiente en la cuenta de origen. El pipeline ejecuta `verify` y valida Compose.
+La misma clave y el mismo cuerpo devuelven `200` con el mismo identificador; un cuerpo distinto devuelve `409`. Una respuesta `202` indica que la conciliación continúa y se puede consultar el estado con `GET /api/v1/transferencias/{id}`. `GET /api/v1/notificaciones` muestra avisos simulados del titular autenticado. Solo las confirmaciones escriben `TransferenciaConfirmada` v1 en outbox dentro de la transacción contable; el relay lo publica en Kafka y Notificaciones deduplica por `eventId`.
 
-Las ramas HU-02 a HU-07 se apilan en orden. La rama `feature/TEC-12-demo-integral-H2` añade Compose completo y esta guía; usa esa rama para reproducir el MVP. Kafka, Redis, MongoDB, Config Server y Kubernetes corresponden a etapas posteriores.
+El script H2 comprueba P-01 a P-08 y P-10 por el gateway. P-09 se prueba con Testcontainers. Para P-11, detén Kafka con `docker compose stop kafka`, confirma una transferencia y verifica una fila de `outbox` con `published_at IS NULL` en la base `contabilidad`; al ejecutar `docker compose start kafka`, el aviso aparece en `GET /api/v1/notificaciones`. Para P-12, la prueba `NotificationIntegrationTest` repite el mismo `eventId` y verifica una sola entrega. También se comprobó reenviando el evento por Kafka en Compose.
+
+Las ramas HU-02 a HU-08 se apilan en orden. Usa la rama final del hito para reproducir su estado. Redis, MongoDB, Config Server y Kubernetes corresponden a etapas posteriores.

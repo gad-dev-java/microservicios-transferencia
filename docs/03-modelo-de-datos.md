@@ -18,7 +18,7 @@ Cada servicio es dueño de su base lógica y ejecuta sus propias migraciones Fly
 | `comandos` | `transfer_id uuid`, `request_hash char(64)`, `outcome varchar(16)`, `reason_code varchar(64)`, `movement_id uuid`, `created_at`, `updated_at` | PK `transfer_id`; conserva tanto confirmaciones como rechazos |
 | `movimientos` | `id uuid`, `transfer_id uuid`, `actor_subject varchar(128)`, `created_at` | PK `id`; único `transfer_id` |
 | `asientos` | `id uuid`, `movement_id uuid`, `account_id uuid`, `delta numeric(19,2)`, `created_at` | PK `id`; FK locales; `delta <> 0` |
-| `outbox` | `event_id uuid`, `aggregate_id uuid`, `event_type`, `schema_version int`, `payload jsonb`, `created_at`, `published_at` | PK `event_id`; se añade al incorporar Kafka |
+| `outbox` | `event_id uuid`, `transfer_id uuid`, `event_type`, `schema_version int`, `payload jsonb`, `created_at`, `published_at`, `attempts`, `next_attempt_at` | PK `event_id`; único `transfer_id`; solo se escribe para `CONFIRMADA` |
 
 En una sola transacción se bloquean las dos filas de `cuentas` en orden ascendente de UUID, se comprueba el saldo, se actualizan los saldos, se insertan un `movimiento`, dos `asientos` opuestos, el resultado en `comandos` y, en la fase de eventos, una fila `outbox`. Un rechazo se guarda en `comandos` sin cambiar saldos. `comandos.transfer_id` hace idempotente tanto una confirmación como un rechazo; `request_hash` detecta un cuerpo distinto. La suma de ambos `delta` debe ser cero; se comprueba en la lógica de dominio y en pruebas de integración.
 
@@ -34,7 +34,7 @@ Las reglas de demostración son deterministas y versionadas. La misma solicitud 
 
 ## Incorporaciones posteriores
 
-- **Notificaciones:** tabla `entregas` con `event_id` único, `status`, `attempts` y tiempos.
+- **Notificaciones:** tabla `entregas` con `event_id` único, `transfer_id`, `owner_subject`, hash del evento, estado `SIMULADA` y fecha. La inserción por `event_id` deduplica entregas repetidas.
 - **Historial:** colección MongoDB con `_id = transferId`, `ownerSubject`, importe, moneda, estado y fecha. Es una proyección reconstruible; no almacena el saldo oficial.
 - **Redis:** límite de solicitudes del gateway; no almacena saldos ni claves de idempotencia como única fuente.
 

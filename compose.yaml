@@ -30,6 +30,47 @@ services:
       retries: 10
       start_period: 10s
 
+  kafka-volume-init:
+    image: busybox:1.37
+    user: "0:0"
+    command: sh -c "chown -R 1000:1000 /data"
+    volumes:
+      - kafka_data:/data
+
+  kafka:
+    image: apache/kafka:4.4.0
+    hostname: kafka
+    depends_on:
+      kafka-volume-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://:29093,PLAINTEXT_HOST://:9092,PLAINTEXT://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_HOST://localhost:9092,PLAINTEXT://kafka:19092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    ports:
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:19092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   contabilidad:
     build:
       context: .
@@ -43,11 +84,34 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+      KAFKA_BOOTSTRAP: kafka:19092
+      OUTBOX_ENABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy
       keycloak:
         condition: service_started
+      kafka:
+        condition: service_started
+
+  notificaciones:
+    build:
+      context: .
+      args:
+        APP_MODULE: notificaciones
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      DB_URL: jdbc:postgresql://postgres:5432/notificaciones
+      DB_USER: banco_app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      KAFKA_BOOTSTRAP: kafka:19092
+      OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
 
   riesgo:
     build:
@@ -101,6 +165,7 @@ services:
       OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/banco-demo
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/banco-demo/protocol/openid-connect/certs
       TRANSFERENCIAS_URL: http://transferencias:8081
+      NOTIFICACIONES_URL: http://notificaciones:8084
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     depends_on:
@@ -108,7 +173,10 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      notificaciones:
+        condition: service_started
 
 volumes:
   postgres_data:
   keycloak_data:
+  kafka_data:

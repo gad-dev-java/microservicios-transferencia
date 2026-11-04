@@ -10,7 +10,24 @@ security:
 tags:
   - name: Cuentas
   - name: Transferencias
+  - name: Notificaciones
 paths:
+  /notificaciones:
+    get:
+      tags: [Notificaciones]
+      summary: Listar avisos simulados propios por transferencias confirmadas
+      operationId: listarNotificaciones
+      responses:
+        '200':
+          description: Hasta 100 avisos propios, del más reciente al más antiguo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notificacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
   /cuentas:
     get:
       tags: [Cuentas]
@@ -194,6 +211,22 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    Notificacion:
+      type: object
+      required: [eventId, transferenciaId, estado, creadaEn]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        transferenciaId:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum: [SIMULADA]
+        creadaEn:
+          type: string
+          format: date-time
     Cuenta:
       type: object
       required: [id, moneda, saldoDisponible, estado]
