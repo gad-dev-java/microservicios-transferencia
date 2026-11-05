@@ -6,13 +6,17 @@ El entorno `banca-demo` reproduce los siete módulos Java y sus dependencias en 
 
 Requisitos: Docker Desktop, Minikube en ejecución, `kubectl`, PowerShell 7 e imágenes locales construidas con `docker compose build`. Se recomiendan 6 CPU y 8 GiB para arrancar todos los servicios; la prueba inicial con 2 CPU hizo que el arranque simultáneo fuera muy lento. El script usa explícitamente el contexto `minikube` y no cambia el contexto global de `kubectl`.
 
+Para un perfil nuevo:
+
 ```powershell
-minikube start --driver=docker --cpus=6 --memory=8192
+& 'C:\Program Files\Kubernetes\Minikube\minikube.exe' start --driver=docker --cpus=6 --memory=8192
 docker compose build
 docker compose stop
 pwsh -NoProfile -File infra/k8s/deploy.ps1
 kubectl --context minikube -n banca-demo get pods,pvc
 ```
+
+Minikube no permite cambiar `--cpus` en un perfil ya creado. Si el perfil Docker existente tiene 2 CPU, `docker update --cpus 6 minikube` amplía temporalmente el contenedor en ejecución sin borrar sus PVC; repite el ajuste si el contenedor se recrea. Esta fue la vía usada en la prueba local.
 
 Si Minikube está instalado fuera de `C:\Program Files\Kubernetes\Minikube\minikube.exe`, pasa `-Minikube <ruta>`. Para volver a aplicar los manifiestos con las imágenes ya cargadas, pasa `-SkipImageLoad`. El script toma las credenciales ficticias de `.env.example`, crea un Secret y cuatro ConfigMaps, carga las imágenes desde Docker y espera el estado Ready de los Deployments. No imprime las credenciales. Los archivos de Config Server solo contienen configuración no sensible.
 
