@@ -15,10 +15,11 @@ MVP local de transferencias ficticias con Java 21, Maven, Spring Boot, PostgreSQ
 - [Límite distribuido con Redis](docs/12-limite-distribuido.md)
 - [Historial asíncrono con MongoDB](docs/13-historial.md)
 - [Config Server y configuración versionada](docs/14-config-server.md)
+- [Despliegue de prueba en Minikube](docs/15-kubernetes.md)
 
-El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. H5 añade Redis para límite distribuido, Historial con MongoDB y Config Server; Kubernetes es la siguiente ampliación.
+El MVP es una transferencia interna en PEN entre cuentas de prueba, con autenticación, evaluación de riesgo, asiento contable atómico e idempotencia. H3 incorpora outbox, Kafka y avisos simulados. H4 añade métricas y trazas. H5 añade Redis para límite distribuido, Historial con MongoDB, Config Server y un despliegue local en Minikube.
 
-## Estado actual: H5, configuración centralizada
+## Estado actual: H5, despliegue de prueba en Kubernetes
 
 Contabilidad registra el movimiento con dos asientos atómicos e idempotencia por `transferId`. Riesgo guarda una decisión reproducible; Transferencias persiste el estado público, exige `Idempotency-Key` y concilia resultados inciertos. Los servicios validan JWT y los endpoints internos exigen identidad de servicio.
 
